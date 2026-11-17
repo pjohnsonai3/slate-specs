@@ -1401,7 +1401,6 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
     save: function (k, v) { try { localStorage.setItem('ss1_' + k, JSON.stringify(v)); } catch (e) { toast('⚠ Could not save locally (storage full?)'); } cloudSchedule(); }
   };
   var projects = DB.load('projects', []);
-  var archive = DB.load('archive', []);   /* reference projects: past manuals kept as written, searchable, section-by-section reusable */
   var library = DB.load('library', null);
   var settings = DB.load('settings', { model: 'claude-sonnet-5-5', architect: 'ai3, Inc.' });
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -1412,7 +1411,6 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
   });
   DB.save('library', library);
   function saveProjects() { DB.save('projects', projects); }
-  function saveArchive() { DB.save('archive', archive); }
   function saveLibrary() { DB.save('library', library); }
   function saveSettings() { DB.save('settings', settings); }
 
@@ -1448,8 +1446,8 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
   /* ================= VIEWS ================= */
   function render() {
     var root = $('#app'); var _c = $('.three .col'), _st = _c ? _c.scrollTop : 0;
-    var titles = { projects: 'Projects', archive: 'Reference projects', library: 'Master library', settings: 'Settings' };
-    var nav = ['projects', 'archive', 'library', 'settings'].map(function (v) { return '<button data-act="nav" data-v="' + v + '" class="ni' + (ui.view === v || (v === 'projects' && ui.view === 'project') ? ' on' : '') + '"><span class="dot"></span>' + titles[v] + '</button>'; }).join('');
+    var titles = { projects: 'Projects', library: 'Master library', settings: 'Settings' };
+    var nav = ['projects', 'library', 'settings'].map(function (v) { return '<button data-act="nav" data-v="' + v + '" class="ni' + (ui.view === v || (v === 'projects' && ui.view === 'project') ? ' on' : '') + '"><span class="dot"></span>' + titles[v] + '</button>'; }).join('');
     var pp = ui.view === 'project' ? proj() : null;
     var ttl = pp ? esc(pp.name || 'Untitled') + (pp.number ? ' <span class="sub">' + esc(pp.number) + '</span>' : '') : titles[ui.view] || '';
     root.innerHTML = '<div class="sb"><div class="logo"><img src="' + (window.__AI3_LOGO || '') + '" alt="ai3"><div class="logo-sub">Slate Specs</div></div><nav>' + nav + '</nav><div class="sb-foot"><div class="thm"><button data-act="theme" data-t="light">Light</button><button data-act="theme" data-t="dark">Dark</button></div><span id="syncpill" class="pill">' + esc(cloud.label) + '</span></div></div><div class="mainc"><div class="topbar"><h1>' + ttl + '</h1></div><div class="main" id="main"></div></div>';
@@ -1458,7 +1456,6 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
     if (ui.view === 'projects') m.innerHTML = viewProjects();
     else if (ui.view === 'project') { m.style.overflow = 'hidden'; m.innerHTML = viewProject(); afterProject(); }
     else if (ui.view === 'library') m.innerHTML = viewLibrary();
-    else if (ui.view === 'archive') m.innerHTML = viewArchive();
     else m.innerHTML = viewSettings();
     if (ui.view !== 'project') m.style.overflow = 'auto';
     var _n = $('.three .col'); if (_n && _st) _n.scrollTop = _st;
@@ -1530,7 +1527,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
       var head = '<div class="panel"><div class="row"><div><b style="font-size:15px">' + s.code + ' – ' + esc(s.title) + '</b></div><div class="sp"></div><select data-act="status" style="padding:4px 6px;border:1px solid var(--border2);border-radius:6px">' + [['draft', 'Draft'], ['review', 'In review'], ['final', 'Final']].map(function (o) { return '<option value="' + o[0] + '"' + (s.status === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
         '<div class="row" style="margin-top:10px">' + (!s.body.trim() ? '<button class="btn ai" data-act="gen" data-code="' + s.code + '">✨ Generate boilerplate with AI</button>' : '<button class="btn ai" data-act="fillnotes">✨ Fill answers from notes &amp; uploads</button><button class="btn ai" data-act="review">✨ AI review</button>' + (hasSources(p) ? '<button class="btn ai" data-act="checksec">\u2728 Check vs drawings &amp; finishes</button>' : '')) +
         '<button class="btn sm" data-act="edittext">' + (ui.editText ? 'Hide text editor' : 'Edit section text') + '</button>' +
-        (stale ? '<button class="btn sm" data-act="pull">Library updated — pull latest</button><button class="btn sm" data-act="cmplib">Review changes</button>' : '') + '<button class="btn sm" data-act="refsec" title="Find this section in your past project manuals">Reference</button><button class="btn sm" data-act="buildrefs" title="Write the References article from the standards cited in this section">Build References</button><button class="btn sm" data-act="mfrins">Insert manufacturers</button><button class="btn sm" data-act="renum" title="Change the section number; references follow">Renumber</button>' + '</div></div>';
+        (stale ? '<button class="btn sm" data-act="pull">Library updated — pull latest</button><button class="btn sm" data-act="cmplib">Review changes</button>' : '') + '<button class="btn sm" data-act="buildrefs" title="Write the References article from the standards cited in this section">Build References</button><button class="btn sm" data-act="mfrins">Insert manufacturers</button><button class="btn sm" data-act="renum" title="Change the section number; references follow">Renumber</button>' + '</div></div>';
       var notes = '<div class="panel"><div class="fld" style="margin:0"><label>Notes for this section (used by AI fill)</label><textarea data-snote placeholder="e.g. Guest rooms get 5/8&quot; Type X, level 4. Lobby ceilings level 5.">' + esc(s.notes || '') + '</textarea></div></div>';
       var edit = ui.editText ? '<div class="panel"><h2>Section text</h2><div class="small muted" style="margin-bottom:6px">Project-only copy. Changes here do not touch the library unless you save to it.</div><textarea class="code" data-body>' + esc(s.body) + '</textarea><div class="row" style="margin-top:8px"><button class="btn sm" data-act="tolib">Save to library as ai3 standard</button><button class="btn sm" data-act="reset">Reset to library text</button><button class="btn sm" data-act="cmplib">Compare to library</button></div></div>' : '';
       mid = head + secChecksPanel(p, s) + (s.body.trim() ? '<div class="panel"><h2>Project-specific items</h2>' + qHtml(s) + '</div>' : '<div class="panel muted">This section has no text yet. Generate boilerplate with AI, or open the text editor and paste your own.</div>') + notes + edit;
@@ -1690,13 +1687,13 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
   function hash(v) { return JSON.stringify(v); }
   function projKey(id) { return 'ss_proj_' + id; }
   /* one row per project (like STEVE's per-collection rows), so a save uploads only what changed and the row never holds every project */
-  function cloudCollections() { var o = { ss_library: library, ss_settings: { architect: settings.architect, standards: settings.standards || null }, ss_idx: projects.map(function (p) { return p.id; }) }; projects.forEach(function (p) { o[projKey(p.id)] = p; }); o.ss_archidx = archive.map(function (x) { return x.id; }); archive.forEach(function (x) { o['ss_arch_' + x.id] = x; }); return o; }
+  function cloudCollections() { var o = { ss_library: library, ss_settings: { architect: settings.architect, standards: settings.standards || null }, ss_idx: projects.map(function (p) { return p.id; }) }; projects.forEach(function (p) { o[projKey(p.id)] = p; }); return o; }
   function cloudSchedule() { if (!cloud || !cloud.client || !cloud.user || !cloud.ready) return; clearTimeout(cloudT); setPill('Saving…', false); cloudT = setTimeout(cloudPush, 1500); }
   function setPill(l, ok) { cloud.label = l; cloud.ok = ok; var p = $('#syncpill'); if (p) { p.textContent = l; p.className = 'pill' + (ok ? ' ok' : ''); } }
   async function cloudPush() {
     var rows = [], c = cloudCollections();
     Object.keys(c).forEach(function (k) { var h = hash(c[k]); if (cloud.hash[k] !== h) rows.push({ key: k, data: c[k], updated_by: cloud.user.id }); });
-    var gone = Object.keys(cloud.hash).filter(function (k) { return /^ss_(proj|arch)_/.test(k) && c[k] === undefined; });
+    var gone = Object.keys(cloud.hash).filter(function (k) { return k.indexOf('ss_proj_') === 0 && c[k] === undefined; });
     if (!rows.length && !gone.length) return setPill('Cloud synced', true);
     if (rows.length) {
       var r = await cloud.client.from('app_state').upsert(rows, { onConflict: 'key' });
@@ -1723,7 +1720,6 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
     var mig = false;
     if (Array.isArray(m.ss_idx)) { var cp = m.ss_idx.map(function (id) { return m[projKey(id)]; }).filter(Boolean); if (cp.length < m.ss_idx.length) return cloudFail('The cloud copy is incomplete (' + cp.length + ' of ' + m.ss_idx.length + ' projects found).'); stashLocal(cp); projects = cp; }
     else if (Array.isArray(m.ss_projects)) { stashLocal(m.ss_projects); projects = m.ss_projects; mig = true; }   /* old single-row format: split on first push */
-    if (Array.isArray(m.ss_archidx)) { archive = m.ss_archidx.map(function (id) { return m['ss_arch_' + id]; }).filter(Boolean); localStorage.setItem('ss1_archive', JSON.stringify(archive)); }
     DB.save && localStorage.setItem('ss1_projects', JSON.stringify(projects));
     if (m.ss_library) { Object.keys(SS.SEED).forEach(function (c) { if (!m.ss_library[c]) m.ss_library[c] = clone(SS.SEED[c]); }); library = m.ss_library; localStorage.setItem('ss1_library', JSON.stringify(library)); }
     if (m.ss_settings && m.ss_settings.architect) { settings.architect = m.ss_settings.architect; if (Array.isArray(m.ss_settings.standards)) settings.standards = m.ss_settings.standards; localStorage.setItem('ss1_settings', JSON.stringify(settings)); }
@@ -1755,7 +1751,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
     cloud.user = r.data.user; $('#gate').remove(); setPill('Syncing…', false); await cloudPull(); render();
   }
 
-  function downloadBackup(name) { var blob = new Blob([JSON.stringify({ projects: projects, archive: archive, library: library, settings: { architect: settings.architect, model: settings.model } }, null, 1)], { type: 'application/json' }); var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name + '-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); a.remove(); }
+  function downloadBackup(name) { var blob = new Blob([JSON.stringify({ projects: projects, library: library, settings: { architect: settings.architect, model: settings.model } }, null, 1)], { type: 'application/json' }); var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name + '-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); a.remove(); }
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden' && cloud.ready && cloud.client && cloud.user) { clearTimeout(cloudT); cloudPush(); } });
 
   /* ================= EVENTS ================= */
@@ -1847,7 +1843,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
     else if (t.dataset.act === 'status' && s) { s.status = t.value; saveProjects(); refreshPreview(); }
     else if (t.dataset.act === 'notesToggle' || t.dataset.act === 'optNotes') { ui.notes = t.checked; if (ui.tab === 'sections') refreshPreview(); }
     else if (t.dataset.restore !== undefined && t.files[0]) {
-      var r = new FileReader(); r.onload = function () { try { var d = JSON.parse(r.result); if (!d.projects || !d.library) throw new Error('Not a Slate Specs backup'); if (!confirm('Replace everything with this backup? A copy of what is there now will download first.')) return; downloadBackup('slate-specs-before-restore'); projects = d.projects; if (Array.isArray(d.archive)) { archive = d.archive; saveArchive(); } library = d.library; saveProjects(); saveLibrary(); toast('Restored'); render(); } catch (er) { toast('⚠ ' + er.message); } }; r.readAsText(t.files[0]);
+      var r = new FileReader(); r.onload = function () { try { var d = JSON.parse(r.result); if (!d.projects || !d.library) throw new Error('Not a Slate Specs backup'); if (!confirm('Replace everything with this backup? A copy of what is there now will download first.')) return; downloadBackup('slate-specs-before-restore'); projects = d.projects; library = d.library; saveProjects(); saveLibrary(); toast('Restored'); render(); } catch (er) { toast('⚠ ' + er.message); } }; r.readAsText(t.files[0]);
     }
   });
 
@@ -2176,7 +2172,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
 
 
   /* ================= IMPORT AN EXISTING PROJECT MANUAL INTO THE LIBRARY ================= */
-  var imp = { list: [], skipped: [], mode: 'ref', meta: {} };
+  var imp = { list: [], skipped: [] };
   function normCode(c) { var d = String(c || '').replace(/[^0-9]/g, ''); return d.length >= 4 ? d.slice(0, 2) + ' ' + d.slice(2) : ''; }
   function manualPrompt(a, b, n) {
     return 'You are converting pages ' + a + '–' + b + ' of ' + n + ' from an architecture firm’s PROJECT MANUAL (CSI-style specification sections) into reusable MASTER BOILERPLATE text.\n\n' + GRAMMAR +
@@ -2194,54 +2190,26 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
     }); });
     return order.map(function (c) { var t = by[c]; t.title = t.title.toLowerCase().replace(/\b[a-z]/g, function (m) { return m.toUpperCase(); }).replace(/\b(And|Of|For|The|In|To|Or)\b(?!^)/g, function (m) { return m.toLowerCase(); }); return t; });
   }
-  /* reference mode keeps the manual exactly as written (project names, products, dates); library mode turns project specifics into blanks */
-  function refPrompt(a, b, n) {
-    return manualPrompt(a, b, n).replace('into reusable MASTER BOILERPLATE text', 'into a faithful REFERENCE copy')
-      .replace(/- Replace anything specific to THIS project[\s\S]*?Keep general manufacturer lists and standards\./, '- Keep EVERY project-specific detail exactly as written (names, addresses, owners, room names, sheet numbers, dates, the manufacturers and products chosen). Do NOT use [bracketed placeholders] or {{variables}}; write the real text.');
-  }
-  function textPrompt(fn) { return fn(0, 0, 0).replace(/pages 0–0 of 0/, 'one part').replace('Each page has a running header naming the section (e.g. "SECTION 09 260") and a footer with the project name and page number. Use the header to know which section a page belongs to.', 'The text has no page headers. Sections start at lines like "SECTION 09 260" and end at "END OF SECTION 09 260".'); }
-  function chunkText(t, max) {
-    var out = [], cur = '', paras = t.split('\n');
-    paras.forEach(function (ln) { if (cur.length + ln.length > max && cur.length > max * 0.5 && /^\s*SECTION \d\d/i.test(ln) || cur.length + ln.length > max * 1.3) { out.push(cur); cur = ''; } cur += ln + '\n'; });
-    if (cur.trim()) out.push(cur); return out;
-  }
   function impModal() {
-    var lib = imp.mode === 'lib';
-    modal('<h2>Import a project manual</h2>' +
-      '<div class="small" style="margin-bottom:8px"><label style="display:block;margin-bottom:4px"><input type="radio" name="impmode" value="ref" data-impmode' + (lib ? '' : ' checked') + '> <b>Reference project.</b> Keep the manual as written, searchable, and copy sections into any project.</label>' +
-      '<label style="display:block"><input type="radio" name="impmode" value="lib" data-impmode' + (lib ? ' checked' : '') + '> <b>Master library.</b> Turn project details into blanks and add the sections as boilerplate.</label></div>' +
-      '<div id="impmeta" style="' + (lib ? 'display:none' : '') + '"><div class="two"><div class="fld"><label>Project name</label><input type="text" id="impname" value="' + esc(imp.meta.name || '') + '" placeholder="The Perlant"></div><div class="fld"><label>Project no. / date (optional)</label><input type="text" id="impnum" value="' + esc(imp.meta.number || '') + '" placeholder="e.g. 22-014 • March 2024"></div></div></div>' +
-      '<div class="small muted" style="margin-bottom:10px">Upload the finished manual as a PDF or Word file. The AI splits it into sections. About one minute per ' + batchPages() + ' PDF pages, so a 400-page manual takes ~20 minutes. Leave this window open. Nothing is saved until you press the button below.</div>' +
-      '<label class="dz" data-dz="manual"><span class="dzt">✨ Drop a project manual (PDF or Word) here</span><span class="dzs">or click to browse</span><input type="file" id="impfile" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-impfile="1" style="display:none"></label><div id="prog-manual" class="small" style="margin:10px 0;color:var(--accent-ink)"></div><div id="err-manual" class="small" style="display:none;color:#a33;margin:6px 0"></div><div id="implist"></div>' +
-      '<div class="mfoot"><button class="btn" data-act="closemodal">Close</button><button class="btn pri" data-act="impapply" id="impapply" style="display:none"></button></div>', true);
+    modal('<h2>Import from an existing project manual</h2><div class="small muted" style="margin-bottom:10px">Upload a finished manual (PDF). The AI splits it into sections and converts each to master boilerplate, keeping your wording and turning project-specific details into [bracketed] blanks. About one minute per ' + batchPages() + ' pages, so a 400-page manual takes ~20 minutes. Leave this window open. Nothing is added to the library until you review it.</div>' +
+      '<label class="dz" data-dz="manual"><span class="dzt">\u2728 Drop a project manual (PDF) here</span><span class="dzs">or click to browse</span><input type="file" id="impfile" accept=".pdf,application/pdf" data-impfile="1" style="display:none"></label><div id="prog-manual" class="small" style="margin:10px 0;color:var(--accent-ink)"></div><div id="err-manual" class="small" style="display:none;color:#a33;margin:6px 0"></div><div id="implist"></div>' +
+      '<div class="mfoot"><button class="btn" data-act="closemodal">Close</button><button class="btn pri" data-act="impapply" id="impapply" style="display:none">Add selected to library</button></div>', true);
   }
   function impRender() {
-    var el = $('#implist'); if (!el) return; var lib = imp.mode === 'lib';
-    el.innerHTML = imp.list.length ? (lib ? '<div class="small" style="margin:8px 0"><label><input type="checkbox" id="impstd"> Mark imported sections as <b>ai3 Standard</b> (otherwise “reviewed”)</label></div>' : '') + '<div style="max-height:46vh;overflow:auto;border:1px solid var(--border);border-radius:8px">' +
-      imp.list.map(function (x, i) { var ex = lib && library[x.code] && library[x.code].body;
-        return '<label class="sec" style="cursor:pointer"><input type="checkbox" data-impi="' + i + '" checked><span class="c">' + esc(x.code) + '</span><span class="t">' + esc(x.title) + '</span><span class="small muted">' + x.body.split('\n').length + ' lines</span>' + (lib ? (ex ? '<span class="badge n">replaces existing</span>' : '<span class="badge g">new</span>') : '') + '</label>'; }).join('') + '</div>' +
+    var el = $('#implist'); if (!el) return;
+    el.innerHTML = imp.list.length ? '<div class="small" style="margin:8px 0"><label><input type="checkbox" id="impstd"> Mark imported sections as <b>ai3 Standard</b> (otherwise “reviewed”)</label></div><div style="max-height:46vh;overflow:auto;border:1px solid var(--border);border-radius:8px">' +
+      imp.list.map(function (x, i) { var ex = library[x.code] && library[x.code].body;
+        return '<label class="sec" style="cursor:pointer"><input type="checkbox" data-impi="' + i + '" checked><span class="c">' + esc(x.code) + '</span><span class="t">' + esc(x.title) + '</span><span class="small muted">' + x.body.split('\n').length + ' lines</span>' + (ex ? '<span class="badge n">replaces existing</span>' : '<span class="badge g">new</span>') + '</label>'; }).join('') + '</div>' +
       (imp.skipped.length ? '<div class="small" style="color:#a33;margin-top:6px">Pages the AI could not read: ' + imp.skipped.join(', ') + '</div>' : '') : '';
-    var b = $('#impapply'); if (b) { b.style.display = imp.list.length ? '' : 'none'; b.textContent = lib ? 'Add selected to library' : 'Save as reference project'; }
+    var b = $('#impapply'); if (b) b.style.display = imp.list.length ? '' : 'none';
   }
   document.addEventListener('change', function (e) {
-    var t = e.target;
-    if (t.dataset && t.dataset.impmode !== undefined) { imp.meta = { name: ($('#impname') || {}).value || imp.meta.name, number: ($('#impnum') || {}).value || imp.meta.number }; var keep = imp.list, sk = imp.skipped; imp.mode = t.value; impModal(); imp.list = keep; imp.skipped = sk; impRender(); return; }
-    if (!t.dataset || !t.dataset.impfile || !t.files.length) return;
-    var f = t.files[0]; t.value = ''; imp.list = []; imp.skipped = []; impRender(); setErr('manual', '');
-    if (!imp.meta.name) { imp.meta.name = f.name.replace(/\.[^.]+$/, '').replace(/[_\-]+/g, ' ').replace(/project manual/i, '').trim(); var ni = $('#impname'); if (ni && !ni.value) ni.value = imp.meta.name; }
-    var fn = imp.mode === 'lib' ? manualPrompt : refPrompt, ext = (f.name.split('.').pop() || '').toLowerCase();
+    var t = e.target; if (!t.dataset || !t.dataset.impfile || !t.files.length) return;
+    var f = t.files[0]; t.value = ''; imp = { list: [], skipped: [] }; impRender(); setErr('manual', '');
     withBusy('impmanual', null, async function () {
       try {
-        var acc = {};
-        if (ext === 'docx') {
-          setProg('manual', 'Reading ' + f.name + '…');
-          var parts = chunkText(docxText(await readBuf(f)), 40000); acc.results = []; acc.skipped = [];
-          if (!parts.length || parts.join('').length < 50) throw new Error('No readable text found in that Word file.');
-          for (var i = 0; i < parts.length; i++) { setProg('manual', 'AI is reading part ' + (i + 1) + ' of ' + parts.length + '…'); acc.results.push(parseJson(await ai(textPrompt(fn) + '\n\nDOCUMENT TEXT:\n' + parts[i], 16000))); }
-        } else {
-          var pdf = await openPdf(await readBuf(f));
-          await readPdf('manual', f.name, pdf, fn, acc);
-        }
+        var pdf = await openPdf(await readBuf(f)), acc = {};
+        await readPdf('manual', f.name, pdf, manualPrompt, acc);
         imp.list = mergeManual(acc.results || []); imp.skipped = acc.skipped || [];
         setProg('manual', imp.list.length ? 'Done: ' + imp.list.length + ' sections found. Review below.' : 'No specification sections were found in that file.');
         impRender();
@@ -2250,18 +2218,11 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
   });
   document.addEventListener('click', function (e) {
     var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act;
-    if (act === 'libimport') { imp = { list: [], skipped: [], mode: 'lib', meta: {} }; impModal(); }
-    else if (act === 'refimport') { imp = { list: [], skipped: [], mode: 'ref', meta: {} }; impModal(); }
+    if (act === 'libimport') impModal();
     else if (act === 'impapply') {
-      var picked = [].map.call(document.querySelectorAll('[data-impi]:checked'), function (c) { return imp.list[+c.dataset.impi]; });
-      if (imp.mode === 'ref') {
-        var nm = (($('#impname') || {}).value || '').trim(); if (!nm) return toast('Give the project a name.');
-        var rec = { id: SS.uid(), name: nm, number: (($('#impnum') || {}).value || '').trim(), source: 'Imported manual', at: Date.now(), sections: picked.map(function (x) { return { code: x.code, title: x.title, body: x.body }; }) };
-        archive.push(rec); saveArchive(); closeModal(); ui.view = 'archive'; ui.archId = rec.id; render(); toast(picked.length + ' sections saved to Reference projects'); return;
-      }
       var std = $('#impstd') && $('#impstd').checked, n = 0;
-      picked.forEach(function (x) {
-        var old = library[x.code];
+      [].forEach.call(document.querySelectorAll('[data-impi]:checked'), function (c) {
+        var x = imp.list[+c.dataset.impi], old = library[x.code];
         libSet(x.code, { code: x.code, title: x.title || (old && old.title) || catTitle(x.code), body: x.body, questions: [], status: std ? 'standard' : 'reviewed', rev: ((old && old.rev) || 0) + 1 });
         n++;
       });
@@ -2398,7 +2359,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
   }
   function viewExport(p) {
     var h = viewExport0(p).replace('<h2>Pre-issue check</h2>', '<h2>Sections at a glance</h2>');
-    return h.replace('<div class="wrap">', '<div class="wrap">' + checkHtml(p) + issuesHtml(p) + wordPanel(p) + archivePanel(p));
+    return h.replace('<div class="wrap">', '<div class="wrap">' + checkHtml(p) + issuesHtml(p) + wordPanel(p));
   }
 
   /* ---------- submittal register ---------- */
@@ -2692,120 +2653,6 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
   document.addEventListener('change', function (e) {
     var t = e.target; if (t.dataset.wordimp === undefined || !t.files[0]) return; var p = proj(), f = t.files[0];
     var r = new FileReader(); r.onload = function () { try { ui.wr = wordReview(p, docxChunks(r.result)); wordModal(p); } catch (er) { toast('⚠ ' + er.message); } }; r.readAsArrayBuffer(f); t.value = '';
-  });
-
-  /* ================= v2.3: Reference projects (past manuals kept as written, searchable, section-by-section reusable) ================= */
-  function archById(id) { return archive.filter(function (a) { return a.id === id; })[0]; }
-  function archSec(aid, code) { var a = archById(aid); return a && a.sections.filter(function (s) { return s.code === code; })[0]; }
-  function plainBody(b) { return String(b || '').replace(/^#+ /gm, '').replace(/^[1-4NnS]: /gm, ''); }
-  function snip(body, tok) {
-    var t = plainBody(body).replace(/\s+/g, ' '), i = t.toLowerCase().indexOf(tok); if (i < 0) return t.slice(0, 140);
-    return (i > 50 ? '…' : '') + t.slice(Math.max(0, i - 50), i + 110) + (i + 110 < t.length ? '…' : '');
-  }
-  function archSearch(q) {
-    q = String(q || '').trim().toLowerCase(); if (!q) return []; var toks = q.split(/\s+/), hits = [];
-    archive.forEach(function (a) { a.sections.forEach(function (s) {
-      var hay = (s.code + ' ' + s.code.replace(/\s/g, '') + ' ' + s.title).toLowerCase(), body = plainBody(s.body).toLowerCase(), score = 0, ok = true;
-      toks.forEach(function (t) { var h = hay.indexOf(t) >= 0, b = body.split(t).length - 1; if (!h && !b) ok = false; score += (h ? 20 : 0) + Math.min(b, 10); });
-      if (ok) hits.push({ a: a, s: s, score: score, snip: snip(s.body, toks[toks.length - 1]) });
-    }); });
-    return hits.sort(function (x, y) { return y.score - x.score; }).slice(0, 100);
-  }
-  function hitRows(hits, extra) {
-    return hits.map(function (h) { return '<div class="row" style="padding:7px 0;border-bottom:1px solid var(--line2);align-items:flex-start"><div style="flex:1;min-width:220px"><div><span class="c small muted" style="display:inline-block;width:62px">' + esc(h.s.code) + '</span><b>' + esc(h.s.title) + '</b> <span class="small muted">• ' + esc(h.a.name) + '</span></div><div class="small muted" style="margin:2px 0 0 62px">' + esc(h.snip) + '</div></div><div style="white-space:nowrap"><button class="btn sm" data-act="avopen" data-aid="' + h.a.id + '" data-code="' + esc(h.s.code) + '">View</button>' + (extra ? extra(h) : '') + '</div></div>'; }).join('');
-  }
-  function viewArchive() {
-    var a = ui.archId && archById(ui.archId);
-    if (a) {
-      var rows = a.sections.slice().sort(function (x, y) { return SS.sortCodes(x.code, y.code); }).map(function (s) { return '<tr><td>' + esc(s.code) + '</td><td>' + esc(s.title) + '</td><td class="small muted">' + s.body.split('\n').length + ' lines</td><td style="text-align:right;white-space:nowrap"><button class="btn sm" data-act="avopen" data-aid="' + a.id + '" data-code="' + esc(s.code) + '">View / use</button></td></tr>'; }).join('');
-      var fld = function (k, l) { return '<div class="fld"><label>' + l + '</label><input type="text" data-af="' + k + '" value="' + esc(a[k] || '') + '"></div>'; };
-      return '<div class="wrap"><div class="row"><button class="btn sm" data-act="archback">← All reference projects</button><div class="sp"></div><button class="btn sm" data-act="archlibnew">Add new section numbers to master library</button><button class="btn sm danger" data-act="archdel">Delete</button></div>' +
-        '<h1 style="margin-top:12px">' + esc(a.name) + '</h1><div class="panel"><div class="two">' + fld('name', 'Project name') + fld('number', 'Project no. / date') + '</div><div class="small muted">' + a.sections.length + ' sections • ' + esc(a.source || '') + ' • added ' + dstr(a.at) + '</div></div>' +
-        '<div class="panel"><table class="tbl"><tr><th>No.</th><th>Section</th><th></th><th></th></tr>' + rows + '</table></div></div>';
-    }
-    var q = ui.archQ || '', hits = q.trim() ? archSearch(q) : [];
-    var cards = archive.slice().sort(function (x, y) { return y.at - x.at; }).map(function (a) { return '<div class="panel" style="cursor:pointer" data-act="archopen" data-aid="' + a.id + '"><div class="row"><b>' + esc(a.name) + '</b>' + (a.number ? '<span class="small muted">' + esc(a.number) + '</span>' : '') + '<div class="sp"></div><span class="small muted">' + a.sections.length + ' sections • ' + esc(a.source || '') + '</span></div></div>'; }).join('');
-    return '<div class="wrap"><div class="row"><div><h1>Reference projects</h1><div class="muted">Past project manuals kept as written. Search every section across all of them, view one, and copy it into a project or the master library.</div></div><div class="sp"></div><button class="btn pri" data-act="refimport">+ Import a project manual</button></div>' +
-      '<div class="row" style="margin:14px 0"><input type="text" id="archq" placeholder="Search all reference projects: a section number, a title, or any wording" value="' + esc(q) + '" style="flex:1;padding:8px 12px;border-radius:999px"></div>' +
-      (q.trim() ? '<div class="panel">' + (hits.length ? '<div class="small muted" style="margin-bottom:4px">' + hits.length + (hits.length === 100 ? '+' : '') + ' matching sections</div>' + hitRows(hits) : '<div class="empty">Nothing matches.</div>') + '</div>' : (cards || '<div class="panel"><div class="empty">No reference projects yet. Import a past manual (PDF or Word), or open one of your Slate Specs projects and use “Add to Reference projects” on the Issue / export tab.</div></div>')) + '</div>';
-  }
-  function avModal(aid, code) {
-    var a = archById(aid), s = archSec(aid, code); if (!s) return; ui.av = { aid: aid, code: code };
-    var txt = SS.toText(SS.render({ code: s.code, title: s.title, body: s.body, questions: [], answers: {} }, null, {}));
-    var cur = proj(), opts = projects.map(function (p) { return '<option value="' + p.id + '"' + (cur && cur.id === p.id ? ' selected' : '') + '>' + esc(p.name || 'Untitled') + '</option>'; }).join('');
-    modal('<h2>' + esc(s.code) + ' ' + esc(s.title) + '</h2><div class="small muted" style="margin-bottom:8px">From <b>' + esc(a.name) + '</b></div><pre style="white-space:pre-wrap;font:12px/1.5 ui-monospace,Menlo,monospace;max-height:44vh;overflow:auto;background:var(--inset);border-radius:12px;padding:12px;margin:0">' + esc(txt) + '</pre>' +
-      '<div class="small" style="margin:10px 0 6px"><label><input type="checkbox" id="avclean"> Blank out this project’s names, products and dates first (AI, about 10 seconds)</label></div>' +
-      '<div class="row">' + (projects.length ? '<select id="avproj" style="padding:6px 10px;border-radius:8px">' + opts + '</select><button class="btn pri" data-act="avuse">Copy into project</button>' : '<span class="small muted">Create a project to copy this into.</span>') + '<button class="btn" data-act="avlib">Add to master library</button>' + (library[s.code] && library[s.code].body ? '<button class="btn" data-act="avcmp">Compare with master</button>' : '') + '<div class="sp"></div><button class="btn" data-act="closemodal">Close</button></div>');
-  }
-  var CLEAN_PROMPT = function (body) { return 'Convert this specification section to reusable MASTER BOILERPLATE.\n\n' + GRAMMAR + '\n\nRULES:\n- Keep the firm’s wording, order, standards numbers and article titles exactly. Do not rewrite, shorten or add content.\n- Replace anything specific to the original project (project name, address, owner, named people, room names, sheet numbers, project-specific dates, a manufacturer or product chosen only for that job) with a [bracketed placeholder] or {{projectName}} / {{owner}} / {{architect}} / {{address}} / {{cityState}}. Keep general manufacturer lists and standards.\n\nReturn ONLY JSON: {"body":"line\\nline..."}\n\nSECTION TEXT:\n' + body; };
-  async function avBody(s) {
-    if (!($('#avclean') && $('#avclean').checked)) return s.body;
-    if (!apiKey()) throw new Error('No Anthropic API key. Open Settings, paste your key and press Save.');
-    var o = parseJson(await ai(CLEAN_PROMPT(s.body), 16000)); return str(o.body).trim() ? str(o.body).replace(/\r/g, '') : s.body;
-  }
-  function busyBtn(el, on) { if (!el) return; if (on) { el.dataset.t = el.textContent; el.textContent = 'Working…'; el.disabled = true; } else { el.textContent = el.dataset.t || el.textContent; el.disabled = false; } }
-  function putSection(p, s, body) {
-    var ex = p.sections.filter(function (x) { return x.code === s.code; })[0];
-    if (ex) { if (ex.body.trim() && !confirm('Section ' + s.code + ' already has text in this project. Replace it?')) return false; ex.body = body; ex.on = true; ex.status = 'draft'; }
-    else { var ns = newSection(s.code, s.title); ns.title = s.title; ns.body = body; ns.questions = []; ns.libRev = 0; p.sections.push(ns); p.sections.sort(function (a, b) { return SS.sortCodes(a.code, b.code); }); }
-    saveProjects(); return true;
-  }
-  function renderedBody(r) {
-    var L = []; r.parts.forEach(function (pt) { L.push('# ' + pt.title); pt.articles.forEach(function (ar) { L.push('## ' + ar.title); ar.paras.forEach(function (pa) { if (!pa.note) L.push(pa.l + ': ' + pa.segs.map(function (g) { return g.t; }).join('')); }); }); }); return L.join('\n');
-  }
-  function archivePanel(p) {
-    var ex = archive.filter(function (a) { return a.fromId === p.id; })[0];
-    return '<div class="panel"><div class="row"><div><h2 style="margin:0">Reference projects</h2><div class="small muted" style="margin-top:4px">Save this project’s finished sections (with the answers filled in) so future projects can search and reuse them.' + (ex ? ' Saved ' + dstr(ex.at) + '.' : '') + '</div></div><div class="sp"></div><button class="btn" data-act="archadd">' + (ex ? 'Update in Reference projects' : 'Add to Reference projects') + '</button></div></div>';
-  }
-  function refModal(p, s) {
-    var q = ui.refQ != null ? ui.refQ : s.code, hits = archSearch(q);
-    modal('<h2>Reference projects – ' + esc(s.code) + ' ' + esc(s.title) + '</h2><div class="row" style="margin-bottom:6px"><input type="text" id="refq" value="' + esc(q) + '" style="flex:1;padding:8px 12px;border-radius:999px" placeholder="Section number or wording"></div><div class="small" style="margin-bottom:6px"><label><input type="checkbox" id="avclean"> Blank out the original project’s names, products and dates when I use one (AI)</label></div><div id="refres" style="max-height:48vh;overflow:auto">' + refResults(hits) + '</div><div class="mfoot"><button class="btn" data-act="closemodal">Close</button></div>', true);
-  }
-  function refResults(hits) { return hits.length ? hitRows(hits, function (h) { return '<button class="btn sm" data-act="refcmp" data-aid="' + h.a.id + '" data-code="' + esc(h.s.code) + '">Compare</button> <button class="btn sm pri" data-act="refhere" data-aid="' + h.a.id + '" data-code="' + esc(h.s.code) + '">Use here</button>'; }) : '<div class="empty">' + (archive.length ? 'Nothing matches.' : 'No reference projects yet. Add one from the Reference projects page.') + '</div>'; }
-  document.addEventListener('click', function (e) {
-    var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act, p = proj(), s = curSec();
-    if (act === 'archopen') { ui.archId = el.dataset.aid; render(); }
-    else if (act === 'archback') { ui.archId = null; render(); }
-    else if (act === 'archdel') { var a = archById(ui.archId); if (a && confirm('Delete “' + a.name + '” from Reference projects? Projects you already copied sections into are not affected.')) { archive = archive.filter(function (x) { return x.id !== a.id; }); saveArchive(); ui.archId = null; render(); } }
-    else if (act === 'avopen') avModal(el.dataset.aid, el.dataset.code);
-    else if (act === 'avuse') {
-      var tp = projects.filter(function (x) { return x.id === $('#avproj').value; })[0], sec = archSec(ui.av.aid, ui.av.code); if (!tp || !sec) return;
-      busyBtn(el, true); avBody(sec).then(function (b) { busyBtn(el, false); if (putSection(tp, sec, b)) { closeModal(); render(); toast('Copied ' + sec.code + ' into ' + (tp.name || 'project')); } }, function (er) { busyBtn(el, false); toast('⚠ ' + er.message); });
-    }
-    else if (act === 'avlib') {
-      var sc = archSec(ui.av.aid, ui.av.code); if (!sc) return; var old = library[sc.code];
-      if (old && old.body && !confirm('The master library already has ' + sc.code + '. Replace it? The current master text is kept in its history.')) return;
-      busyBtn(el, true); avBody(sc).then(function (b) { busyBtn(el, false); libSet(sc.code, { code: sc.code, title: sc.title || (old && old.title) || catTitle(sc.code), body: b, questions: (old && old.questions) || [], status: 'reviewed', rev: ((old && old.rev) || 0) + 1 }); saveLibrary(); closeModal(); render(); toast(sc.code + ' added to the master library'); }, function (er) { busyBtn(el, false); toast('⚠ ' + er.message); });
-    }
-    else if (act === 'avcmp') { var s2 = archSec(ui.av.aid, ui.av.code), a2 = archById(ui.av.aid); diffModal('Master vs reference – ' + s2.code, 'master library', library[s2.code].body, a2.name, s2.body); }
-    else if (act === 'archlibnew') {
-      var ar = archById(ui.archId), add = ar.sections.filter(function (x) { return !(library[x.code] && library[x.code].body); });
-      if (!add.length) return toast('Every section number here is already in the master library.');
-      if (!confirm('Add ' + add.length + ' section number' + (add.length > 1 ? 's' : '') + ' that the master library does not have yet? The text stays exactly as written in this project, including its names and products. You can edit each afterward.')) return;
-      add.forEach(function (x) { libSet(x.code, { code: x.code, title: x.title || catTitle(x.code), body: x.body, questions: [], status: 'reviewed', rev: 1 }); }); saveLibrary(); toast(add.length + ' added to the master library');
-    }
-    else if (act === 'archadd') {
-      var rs = renderedFor(p, 'all', false); if (!rs.length) return toast('Nothing to add. Included sections have no text yet.');
-      var ex = archive.filter(function (a) { return a.fromId === p.id; })[0];
-      if (ex && !confirm('Replace the saved copy of this project in Reference projects?')) return;
-      var rec = ex || { id: SS.uid(), fromId: p.id, at: 0 }; rec.name = p.name || 'Untitled'; rec.number = [p.number, p.issueDate].filter(Boolean).join(' • '); rec.source = 'Slate Specs project'; rec.at = Date.now();
-      rec.sections = rs.map(function (r) { return { code: r.code, title: r.title, body: renderedBody(r) }; }); if (!ex) archive.push(rec); saveArchive(); render(); toast('Saved to Reference projects');
-    }
-    else if (act === 'refsec') { ui.refQ = null; refModal(p, s); }
-    else if (act === 'refhere') {
-      var sec2 = archSec(el.dataset.aid, el.dataset.code); if (!sec2) return;
-      if (s.body.trim() && !confirm('Replace the text of ' + s.code + ' with the one from ' + archById(el.dataset.aid).name + '?')) return;
-      busyBtn(el, true); avBody(sec2).then(function (b) { busyBtn(el, false); s.body = b; s.status = 'draft'; saveProjects(); closeModal(); render(); toast('Text replaced'); }, function (er) { busyBtn(el, false); toast('⚠ ' + er.message); });
-    }
-    else if (act === 'refcmp') { var sc3 = archSec(el.dataset.aid, el.dataset.code); diffModal('This project vs reference – ' + sc3.code, 'this project (' + s.code + ')', s.body, archById(el.dataset.aid).name, sc3.body); }
-  });
-  document.addEventListener('input', function (e) {
-    var t = e.target;
-    if (t.id === 'archq') { ui.archQ = t.value; var pos = t.selectionStart; render(); var q = $('#archq'); if (q) { q.focus(); q.setSelectionRange(pos, pos); } }
-    else if (t.id === 'refq') { ui.refQ = t.value; $('#refres').innerHTML = refResults(archSearch(t.value)); }
-  });
-  document.addEventListener('change', function (e) {
-    var t = e.target; if (t.dataset.af === undefined) return; var a = archById(ui.archId); if (a) { a[t.dataset.af] = t.value.trim(); saveArchive(); if (t.dataset.af === 'name') render(); }
   });
 
 
