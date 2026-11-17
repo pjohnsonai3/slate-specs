@@ -1,0 +1,5 @@
+<script>
+/* ai3 diagnostic: did the inlined Supabase library define its global? */
+window.__SB_DIAG = (window.supabase && typeof window.supabase.createClient === 'function') ? 'lib-ok' : 'lib-missing';
+console.log('[ai3] Supabase library:', window.__SB_DIAG);
+</script>
