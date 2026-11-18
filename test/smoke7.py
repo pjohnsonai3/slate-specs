@@ -11,7 +11,7 @@ with sync_playwright() as p:
     pg.route('https://fonts.googleapis.com/**',lambda r:r.abort()); pg.route('https://*.supabase.co/**',lambda r:r.abort())
     pg.goto(APP); pg.wait_for_timeout(1200)
     if pg.locator('#gate').count(): pg.click('[data-act=offline]')
-    pg.click('[data-act=newproj]'); pg.fill('[data-pf=name]','Iss Test'); pg.select_option('#npstart',index=1); pg.click('[data-act=createproj]'); pg.wait_for_timeout(400)
+    pg.click('[data-act=newproj]'); pg.fill('[data-pf=name]','Iss Test'); pg.click('[data-act=wiznext]'); pg.click('[data-act=wiznext]'); pg.select_option('#npstart',value='s:1'); pg.click('[data-act=createproj]'); pg.wait_for_timeout(400); pg.click('[data-act=tab][data-t=sections]')
     print('sections',pg.evaluate("__SS_DEBUG.projects[0].sections.filter(s=>s.on).length"))
     # export tab: check + issues
     pg.click('[data-act=tab][data-t=export]'); pg.wait_for_timeout(300)

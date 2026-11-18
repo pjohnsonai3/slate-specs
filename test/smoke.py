@@ -24,7 +24,7 @@ with sync_playwright() as p:
     pg.evaluate("localStorage.setItem('db_apikey_anthropic','sk-test')")
     pg.click('[data-act=newproj]')
     pg.fill('[data-pf=name]','Smoke Test Hotel'); pg.fill('[data-pf=number]','2699'); pg.fill('[data-pf=owner]','Test Owner LLC'); pg.fill('[data-pf=cityState]','Atlanta, GA')
-    pg.select_option('#npstart',index=2); pg.click('[data-act=createproj]'); pg.wait_for_timeout(300)
+    pg.click('[data-act=wiznext]'); pg.click('[data-act=wiznext]'); pg.select_option('#npstart',value='s:2'); pg.click('[data-act=createproj]'); pg.wait_for_timeout(300); pg.click('[data-act=tab][data-t=sections]')
     n=pg.locator('#seclist .sec').count(); print('sections in list',n)
     pg.click('#seclist .sec[data-code="09 260"] .t'); pg.wait_for_timeout(200)
     pg.select_option('[data-q=thickness]','1/2 inch'); pg.fill('[data-q=manufacturer]','TestBoard Co'); pg.fill('[data-q=moistureLocations]','toilet rooms')

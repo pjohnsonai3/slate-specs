@@ -57,6 +57,11 @@
     { name: 'Division 01 only', codes: D1_CORE }
   ];
 
+  /* Project types. Each type starts from the nearest existing starter set; edit the sets in Settings or learn them from reference projects. */
+  SS.PTYPES = ['Hotel', 'Restaurant', 'Office', 'Residential'];
+  SS.PTYPE_LABELS = { Hotel: 'Hotel / hospitality', Restaurant: 'Restaurant / food service', Office: 'Office / commercial', Residential: 'Residential / multifamily' };
+  SS.TYPE_SEED = { Hotel: SS.STARTERS[1].codes.slice(), Restaurant: SS.STARTERS[1].codes.slice(), Office: SS.STARTERS[0].codes.slice(), Residential: SS.STARTERS[0].codes.slice() };
+
   function Q(key, label, type, o) { o = o || {}; return { key: key, label: label, type: type || 'text', options: o.options || [], default: o.def, help: o.help || '', group: o.group || '' }; }
   var YN = { options: ['Yes', 'No'] };
   function yn(key, label, def, help) { return Q(key, label, 'yesno', { options: ['Yes', 'No'], def: def, help: help }); }

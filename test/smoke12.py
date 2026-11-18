@@ -22,7 +22,7 @@ with sync_playwright() as p:
     pg.goto(APP); pg.wait_for_timeout(1200)
     if pg.locator('#gate').count(): pg.click('[data-act=offline]')
     pg.evaluate("localStorage.setItem('db_apikey_anthropic','sk-test')")
-    pg.click('[data-act=newproj]'); pg.fill('[data-pf=name]','Target Proj'); pg.select_option('#npstart',index=1); pg.click('[data-act=createproj]'); pg.wait_for_timeout(300)
+    pg.click('[data-act=newproj]'); pg.fill('[data-pf=name]','Target Proj'); pg.click('[data-act=wiznext]'); pg.click('[data-act=wiznext]'); pg.select_option('#npstart',value='s:1'); pg.click('[data-act=createproj]'); pg.wait_for_timeout(300); pg.click('[data-act=tab][data-t=sections]')
     pg.click('[data-act=nav][data-v=archive]'); pg.wait_for_timeout(200)
     print('empty state:', 'No reference projects yet' in pg.inner_text('.wrap'))
     # Word import (reference mode)
@@ -42,7 +42,7 @@ with sync_playwright() as p:
     pg.fill('#archq','paint'); pg.wait_for_timeout(300); pg.click('[data-act=avopen] >> nth=0'); pg.click('[data-act=avlib]'); pg.wait_for_timeout(500)
     print('master has paint body:', pg.evaluate("JSON.parse(localStorage.getItem('ss1_library'))['09 910'].body.includes('Benjamin Moore')"))
     # section editor Reference
-    pg.click('[data-act=nav][data-v=projects]'); pg.click('[data-act=open] >> nth=0'); pg.wait_for_timeout(300)
+    pg.click('[data-act=nav][data-v=projects]'); pg.click('[data-act=open] >> nth=0'); pg.wait_for_timeout(300); pg.click('[data-act=tab][data-t=sections]')
     pg.evaluate("document.querySelector('#seclist .sec[data-code=\"09 910\"] .t').click()"); pg.wait_for_timeout(300)
     pg.click('[data-act=refsec]'); pg.wait_for_timeout(300); print('ref hits:',pg.locator('#refres [data-act=refhere]').count()); pg.screenshot(path='s12_ref.png')
     pg.click('#refres [data-act=refhere] >> nth=0'); pg.wait_for_timeout(500)

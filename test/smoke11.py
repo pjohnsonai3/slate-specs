@@ -30,7 +30,7 @@ with sync_playwright() as p:
     pg.route('https://fonts.googleapis.com/**',lambda r:r.abort()); pg.route('https://*.supabase.co/**',lambda r:r.abort())
     pg.goto(APP); pg.wait_for_timeout(1200)
     if pg.locator('#gate').count(): pg.click('[data-act=offline]')
-    pg.click('[data-act=newproj]'); pg.fill('[data-pf=name]','Word Test'); pg.select_option('#npstart',index=1); pg.click('[data-act=createproj]'); pg.wait_for_timeout(400)
+    pg.click('[data-act=newproj]'); pg.fill('[data-pf=name]','Word Test'); pg.click('[data-act=wiznext]'); pg.click('[data-act=wiznext]'); pg.select_option('#npstart',value='s:1'); pg.click('[data-act=createproj]'); pg.wait_for_timeout(400); pg.click('[data-act=tab][data-t=sections]')
     pg.click('[data-act=tab][data-t=export]')
     with pg.expect_download() as d: pg.click('[data-act=docx][data-scope=all]')
     d.value.save_as('s11.docx'); edit('s11.docx','s11e.docx')

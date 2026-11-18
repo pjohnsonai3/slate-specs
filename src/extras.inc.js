@@ -15,7 +15,7 @@
     if (o && o.body && o.body !== nu.body) h = h.concat([{ rev: o.rev || 0, title: o.title, body: o.body, at: Date.now() }]).slice(-8);
     nu.hist = h; library[code] = nu; return nu;
   }
-  function expProject(p) { return Object.assign({}, p, { secDates: secDates(p) }); }
+  function expProject(p) { var f = settings.firm || {}, o = { secDates: secDates(p) }; if (f.numLabel) o.numLabel = f.numLabel; var an = p.architect || settings.architect || 'ai3, Inc.'; if (f.address && (!f.name || an === f.name)) o.archLine = an + ', ' + f.address; return Object.assign({}, p, o); }
 
   /* ---------- issues ---------- */
   function snapshot(p) {
@@ -127,7 +127,7 @@
   }
   function viewExport(p) {
     var h = viewExport0(p).replace('<h2>Pre-issue check</h2>', '<h2>Sections at a glance</h2>');
-    return h.replace('<div class="wrap">', '<div class="wrap">' + checkHtml(p) + issuesHtml(p) + wordPanel(p) + archivePanel(p));
+    return h.replace('<div class="wrap">', '<div class="wrap">' + checkHtml(p) + issuesHtml(p) + modPanel(p) + mergePanel(p) + wordPanel(p) + archivePanel(p));
   }
 
   /* ---------- submittal register ---------- */
@@ -449,12 +449,12 @@
       var rows = a.sections.slice().sort(function (x, y) { return SS.sortCodes(x.code, y.code); }).map(function (s) { return '<tr><td>' + esc(s.code) + '</td><td>' + esc(s.title) + '</td><td class="small muted">' + s.body.split('\n').length + ' lines</td><td style="text-align:right;white-space:nowrap"><button class="btn sm" data-act="avopen" data-aid="' + a.id + '" data-code="' + esc(s.code) + '">View / use</button></td></tr>'; }).join('');
       var fld = function (k, l) { return '<div class="fld"><label>' + l + '</label><input type="text" data-af="' + k + '" value="' + esc(a[k] || '') + '"></div>'; };
       return '<div class="wrap"><div class="row"><button class="btn sm" data-act="archback">← All reference projects</button><div class="sp"></div><button class="btn sm" data-act="archlibnew">Add new section numbers to master library</button><button class="btn sm danger" data-act="archdel">Delete</button></div>' +
-        '<h1 style="margin-top:12px">' + esc(a.name) + '</h1><div class="panel"><div class="two">' + fld('name', 'Project name') + fld('number', 'Project no. / date') + '</div><div class="small muted">' + a.sections.length + ' sections • ' + esc(a.source || '') + ' • added ' + dstr(a.at) + '</div></div>' +
+        '<h1 style="margin-top:12px">' + esc(a.name) + '</h1><div class="panel"><div class="two">' + fld('name', 'Project name') + fld('number', 'Project no. / date') + '</div><div class="fld"><label>Project type</label><select data-af="ptype"><option value="">(not set)</option>' + SS.PTYPES.map(function (t) { return '<option value="' + t + '"' + (a.ptype === t ? ' selected' : '') + '>' + esc(SS.PTYPE_LABELS[t]) + '</option>'; }).join('') + '</select></div><div class="small muted">' + a.sections.length + ' sections • ' + esc(a.source || '') + ' • added ' + dstr(a.at) + '</div></div>' +
         '<div class="panel"><table class="tbl"><tr><th>No.</th><th>Section</th><th></th><th></th></tr>' + rows + '</table></div></div>';
     }
     var q = ui.archQ || '', hits = q.trim() ? archSearch(q) : [];
-    var cards = archive.slice().sort(function (x, y) { return y.at - x.at; }).map(function (a) { return '<div class="panel" style="cursor:pointer" data-act="archopen" data-aid="' + a.id + '"><div class="row"><b>' + esc(a.name) + '</b>' + (a.number ? '<span class="small muted">' + esc(a.number) + '</span>' : '') + '<div class="sp"></div><span class="small muted">' + a.sections.length + ' sections • ' + esc(a.source || '') + '</span></div></div>'; }).join('');
-    return '<div class="wrap"><div class="row"><div><h1>Reference projects</h1><div class="muted">Past project manuals kept as written. Search every section across all of them, view one, and copy it into a project or the master library.</div></div><div class="sp"></div><button class="btn pri" data-act="refimport">+ Import a project manual</button></div>' +
+    var cards = archive.slice().sort(function (x, y) { return y.at - x.at; }).map(function (a) { return '<div class="panel" style="cursor:pointer" data-act="archopen" data-aid="' + a.id + '"><div class="row"><b>' + esc(a.name) + '</b>' + (a.ptype ? '<span class="badge b">' + esc(a.ptype) + '</span>' : '') + (a.number ? '<span class="small muted">' + esc(a.number) + '</span>' : '') + '<div class="sp"></div><span class="small muted">' + a.sections.length + ' sections • ' + esc(a.source || '') + '</span></div></div>'; }).join('');
+    return '<div class="wrap"><div class="row"><div><h1>Reference projects</h1><div class="muted">Past project manuals kept as written. Search every section across all of them, view one, and copy it into a project or the master library.</div></div><div class="sp"></div><button class="btn" data-act="bulkimport">Bulk import</button><button class="btn pri" data-act="refimport">+ Import a project manual</button></div>' +
       '<div class="row" style="margin:14px 0"><input type="text" id="archq" placeholder="Search all reference projects: a section number, a title, or any wording" value="' + esc(q) + '" style="flex:1;padding:8px 12px;border-radius:999px"></div>' +
       (q.trim() ? '<div class="panel">' + (hits.length ? '<div class="small muted" style="margin-bottom:4px">' + hits.length + (hits.length === 100 ? '+' : '') + ' matching sections</div>' + hitRows(hits) : '<div class="empty">Nothing matches.</div>') + '</div>' : (cards || '<div class="panel"><div class="empty">No reference projects yet. Import a past manual (PDF or Word), or open one of your Slate Specs projects and use “Add to Reference projects” on the Issue / export tab.</div></div>')) + '</div>';
   }
@@ -517,7 +517,7 @@
       var rs = renderedFor(p, 'all', false); if (!rs.length) return toast('Nothing to add. Included sections have no text yet.');
       var ex = archive.filter(function (a) { return a.fromId === p.id; })[0];
       if (ex && !confirm('Replace the saved copy of this project in Reference projects?')) return;
-      var rec = ex || { id: SS.uid(), fromId: p.id, at: 0 }; rec.name = p.name || 'Untitled'; rec.number = [p.number, p.issueDate].filter(Boolean).join(' • '); rec.source = 'Slate Specs project'; rec.at = Date.now();
+      var rec = ex || { id: SS.uid(), fromId: p.id, at: 0 }; rec.name = p.name || 'Untitled'; rec.number = [p.number, p.issueDate].filter(Boolean).join(' • '); rec.source = 'Slate Specs project'; rec.ptype = p.ptype || rec.ptype || ''; rec.at = Date.now();
       rec.sections = rs.map(function (r) { return { code: r.code, title: r.title, body: renderedBody(r) }; }); if (!ex) archive.push(rec); saveArchive(); render(); toast('Saved to Reference projects');
     }
     else if (act === 'refsec') { ui.refQ = null; refModal(p, s); }
@@ -536,3 +536,951 @@
   document.addEventListener('change', function (e) {
     var t = e.target; if (t.dataset.af === undefined) return; var a = archById(ui.archId); if (a) { a[t.dataset.af] = t.value.trim(); saveArchive(); if (t.dataset.af === 'name') render(); }
   });
+
+/* ================= PROJECT TYPES ================= */
+(function () {
+  function typeCounts() {
+    var o = {}; SS.PTYPES.forEach(function (t) { o[t] = { n: 0, c: {} }; });
+    archive.forEach(function (a) {
+      if (!o[a.ptype]) return; o[a.ptype].n++; var seen = {};
+      (a.sections || []).forEach(function (s) { if (seen[s.code]) return; seen[s.code] = 1; o[a.ptype].c[s.code] = (o[a.ptype].c[s.code] || 0) + 1; });
+    });
+    return o;
+  }
+  function inSet(t, code) { return (typeSets()[t] || []).indexOf(code) >= 0; }
+  function typeCodes(counts) {
+    var seen = {}, ts = typeSets();
+    SS.PTYPES.forEach(function (t) { (ts[t] || []).forEach(function (c) { seen[c] = 1; }); Object.keys(counts[t].c).forEach(function (c) { seen[c] = 1; }); });
+    (ui.typeExtra || []).forEach(function (c) { seen[c] = 1; });
+    return Object.keys(seen).sort(SS.sortCodes);
+  }
+  window.typeBar = function (p) {
+    if (!p || !p.ptype) return '<div class="small muted" style="margin-top:12px">Pick a project type to compare this project against that type’s section set.</div>';
+    var set = typeSets()[p.ptype] || [], missing = set.filter(function (c) { return !p.sections.some(function (s) { return s.code === c; }); });
+    var lbl = SS.PTYPE_LABELS[p.ptype];
+    return missing.length
+      ? '<div class="row" style="margin-top:12px"><span class="small">' + missing.length + ' section' + (missing.length > 1 ? 's' : '') + ' in the ' + esc(lbl) + ' set ' + (missing.length > 1 ? 'are' : 'is') + ' not in this project: ' + esc(missing.slice(0, 6).join(', ')) + (missing.length > 6 ? '…' : '') + '.</span><div class="sp"></div><button class="btn sm" data-act="typeadd">Add them</button></div>'
+      : '<div class="small muted" style="margin-top:12px">This project has every section in the ' + esc(lbl) + ' set. Sets are edited in Settings.</div>';
+  };
+  function typePanel() {
+    var counts = typeCounts(), codes = typeCodes(counts), ts = typeSets();
+    var rows = codes.map(function (c) {
+      var flags = SS.PTYPES.map(function (t) { return inSet(t, c); }), diff = flags.some(function (x) { return x !== flags[0]; });
+      if (ui.typeDiff && !diff) return '';
+      return '<tr' + (diff ? ' style="background:var(--surface2,rgba(127,127,127,.07))"' : '') + '><td class="small" style="white-space:nowrap">' + esc(c) + '</td><td class="small">' + esc(catTitle(c) || (library[c] && library[c].title) || '') + '</td>' +
+        SS.PTYPES.map(function (t) { var k = counts[t].c[c] || 0; return '<td style="text-align:center;white-space:nowrap"><input type="checkbox" data-tset="' + t + '" data-code="' + esc(c) + '"' + (inSet(t, c) ? ' checked' : '') + '>' + (counts[t].n ? ' <span class="small muted">' + k + '/' + counts[t].n + '</span>' : '') + '</td>'; }).join('') + '</tr>';
+    }).join('');
+    var head = SS.PTYPES.map(function (t) { return '<th style="text-align:center">' + esc(t) + '<div class="small muted" style="font-weight:400">' + (ts[t] || []).length + ' sections • ' + counts[t].n + ' ref. project' + (counts[t].n === 1 ? '' : 's') + '</div><button class="btn sm" data-act="typelearn" data-t="' + t + '"' + (counts[t].n ? '' : ' disabled') + '>Learn from projects</button> <button class="btn sm" data-act="typereset" data-t="' + t + '">Reset</button></th>'; }).join('');
+    return '<div class="panel"><h2>Project types</h2><div class="small muted" style="margin-bottom:8px">Each type has its own default set of sections, used when a new project picks that type. Tick or untick a section to change a type’s set. Shaded rows are sections where the types differ. Tag your Reference projects by type, and the k/n figures show how many of them contain each section. “Learn from projects” sets a type to the sections found in at least half of its reference projects. The sets start from ai3’s existing starter lists, so treat them as a starting point. A project’s type is also available to section text as <code>?(projectType=Hotel)</code> and <code>{{projectType}}</code>.</div>' +
+      '<div class="row" style="margin-bottom:8px"><label class="small"><input type="checkbox" data-typediff' + (ui.typeDiff ? ' checked' : '') + '> Only show sections that differ</label><div class="sp"></div><input type="text" id="typenew" placeholder="Add a row: 09 300" style="width:130px;padding:6px"><button class="btn sm" data-act="typenewrow">Add row</button></div>' +
+      '<div style="max-height:420px;overflow:auto"><table class="tbl"><tr><th>No.</th><th>Section</th>' + head + '</tr>' + (rows || '<tr><td colspan="6" class="muted">Nothing to show.</td></tr>') + '</table></div></div>';
+  }
+  var viewSettings1 = viewSettings;
+  viewSettings = function () { var h = viewSettings1(), i = h.lastIndexOf('</div>'); return h.slice(0, i) + typePanel() + h.slice(i); };
+
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act, p = proj();
+    if (act === 'typeadd') {
+      if (!p || !p.ptype) return; var set = typeSets()[p.ptype] || [], before = p.sections.length;
+      addSections(p, set); saveProjects(); render(); toast((p.sections.length - before) + ' sections added');
+    }
+    else if (act === 'typelearn') {
+      var t = el.dataset.t, c = typeCounts()[t]; if (!c.n) return;
+      var learned = Object.keys(c.c).filter(function (k) { return c.c[k] / c.n >= 0.5; }).sort(SS.sortCodes);
+      if (!learned.length) return toast('No section appears in half of the ' + t + ' projects.');
+      if (!confirm('Set the ' + t + ' list to the ' + learned.length + ' sections found in at least half of your ' + c.n + ' ' + t + ' reference project' + (c.n > 1 ? 's' : '') + '?' + (c.n < 3 ? ' With fewer than 3 projects this will mostly mirror them.' : '') + ' This replaces the current ' + (typeSets()[t] || []).length + '-section list.')) return;
+      typeSets()[t] = learned; saveSettings(); render(); toast(t + ' set updated');
+    }
+    else if (act === 'typereset') {
+      var t2 = el.dataset.t; if (!confirm('Reset the ' + t2 + ' list to the starting set?')) return;
+      typeSets()[t2] = (SS.TYPE_SEED[t2] || []).slice(); saveSettings(); render();
+    }
+    else if (act === 'typenewrow') {
+      var v = (($('#typenew') || {}).value || '').trim().replace(/\s+/g, ' '); var m = v.match(/^(\d{2})\s?(\d{3,4})$/); if (!m) return toast('Enter a section number like 09 300.');
+      var code = m[1] + ' ' + m[2]; ui.typeExtra = (ui.typeExtra || []).concat(code); render();
+    }
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.dataset.tset !== undefined) {
+      var set = typeSets()[t.dataset.tset] || (typeSets()[t.dataset.tset] = []), i = set.indexOf(t.dataset.code);
+      if (t.checked && i < 0) { set.push(t.dataset.code); set.sort(SS.sortCodes); } else if (!t.checked && i >= 0) set.splice(i, 1);
+      saveSettings(); render();
+    }
+    else if (t.dataset.typediff !== undefined) { ui.typeDiff = t.checked; render(); }
+    else if (t.dataset.pf === 'ptype') {
+      var np = $('#npstart'); if (np && t.value) np.value = 't:' + t.value;
+      var bar = $('#typebar'), p = proj(); if (bar && p && ui.tab === 'info') { p.ptype = t.value; saveSoon(); bar.innerHTML = typeBar(p); }
+    }
+  });
+})();
+
+
+/* ================= MODIFICATIONS: apply a change document to a project ================= */
+(function () {
+  var mod = { list: [], skipped: [], name: '', file: '' };
+  function modPanel(p) {
+    var log = (p.mods || []).map(function (m) {
+      var rep = m.items.filter(function (i) { return i.action === 'replaced'; }).length, add = m.items.length - rep;
+      return '<tr><td>' + esc(m.name) + '</td><td class="small muted">' + dstr(m.at) + '</td><td class="small">' + rep + ' replaced, ' + add + ' added: ' + esc(m.items.map(function (i) { return i.code; }).join(', ')) + '</td><td style="text-align:right"><button class="btn sm danger" data-act="modundo" data-id="' + m.id + '">Undo</button></td></tr>';
+    }).join('');
+    return '<div class="panel"><div class="row"><div><h2 style="margin:0">Modifications</h2><div class="small muted" style="margin-top:4px">Apply an addendum, bulletin, owner change or other marked document. Sections in it replace the same section numbers in this project, and new section numbers are added. You choose which ones apply, and every modification can be undone.</div></div><div class="sp"></div><button class="btn" data-act="modopen">Apply a modification document</button></div>' +
+      (log ? '<table class="tbl" style="margin-top:10px"><tr><th>Modification</th><th>Applied</th><th>Sections</th><th></th></tr>' + log + '</table>' : '') + '</div>';
+  }
+  window.modPanel = modPanel;
+  function modModal() {
+    modal('<h2>Apply a modification document</h2><div class="small muted" style="margin-bottom:8px">Upload the document (PDF or Word) that contains the changed sections as full text. The AI splits it into sections. Nothing changes in the project until you press Apply.</div>' +
+      '<div class="fld"><label>Modification name</label><input type="text" id="modname" value="' + esc(mod.name) + '" placeholder="Addendum No. 2"></div>' +
+      '<label class="dz" data-dz="mod"><span class="dzt">✨ Drop the modification document (PDF or Word) here</span><span class="dzs">or click to browse</span><input type="file" id="modfile" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-modfile style="display:none"></label>' +
+      '<div class="small" id="prog-manual" style="margin-top:8px;min-height:18px"></div><div class="small" id="err-manual" style="color:#a33;display:none"></div><div id="modlist"></div>' +
+      '<div class="mfoot"><button class="btn" data-act="closemodal">Cancel</button><button class="btn pri" id="modapply" data-act="modapply" style="display:none">Apply</button></div>', true);
+    modRender();
+  }
+  function modDiff(p, x) {
+    var r = renderedFor(p, 'all', false).filter(function (q) { return q.code === x.code; })[0], s0 = p.sections.filter(function (q) { return q.code === x.code; })[0];
+    var ops = SS.diffLines(r ? renderedBody(r) : (s0 ? s0.body : ''), x.body), ds = SS.diffStats(ops);
+    return '<div style="padding:6px 10px"><div class="small muted" style="margin-bottom:4px"><span class="badge r">− current</span> <span class="badge g">+ modification</span> • ' + ds.add + ' lines added, ' + ds.del + ' removed</div><style>' + SS.REDLINE_CSS + '</style><div style="max-height:30vh;overflow:auto;border-radius:12px;background:var(--inset);padding:6px 0">' + (ds.changed ? SS.redlineHtml(ops, 3) : '<div class="empty">No differences.</div>') + '</div></div>';
+  }
+  function modRender() {
+    var el = $('#modlist'); if (!el) return; var p = proj();
+    el.innerHTML = mod.list.length ? '<div style="max-height:44vh;overflow:auto;border:1px solid var(--border);border-radius:8px;margin-top:8px">' + mod.list.map(function (x, i) {
+      var ex = p.sections.filter(function (s) { return s.code === x.code; })[0];
+      return '<div class="sec" style="display:flex;align-items:center;gap:8px"><input type="checkbox" data-modi="' + i + '" checked><span class="c">' + esc(x.code) + '</span><span class="t" style="flex:1">' + esc(x.title) + '</span><span class="small muted">' + x.body.split('\n').length + ' lines</span>' +
+        (ex ? '<span class="badge n">replaces existing</span><button class="btn sm" data-act="modcmp" data-i="' + i + '">' + (mod.open === i ? 'Hide' : 'Compare') + '</button>' : '<span class="badge g">new section</span>') + '</div>' + (mod.open === i ? modDiff(p, x) : '');
+    }).join('') + '</div>' + (mod.skipped.length ? '<div class="small" style="color:#a33;margin-top:6px">Pages the AI could not read: ' + mod.skipped.join(', ') + '</div>' : '') : '';
+    var b = $('#modapply'); if (b) b.style.display = mod.list.length ? '' : 'none';
+  }
+  window.modAdd = function (f) {
+    var n = $('#modname'); if (n && !n.value) n.value = f.name.replace(/\.[^.]+$/, '').replace(/[_\-]+/g, ' ').trim();
+    mod.list = []; mod.skipped = []; modRender(); setErr('manual', '');
+    withBusy('modread', null, async function () {
+      try {
+        var got = await extractManual(f, refPrompt); mod.list = got.list; mod.skipped = got.skipped;
+        setProg('manual', mod.list.length ? 'Done: ' + mod.list.length + ' sections found. Review below.' : 'No specification sections were found in that file.'); modRender();
+      } catch (err) { setProg('manual', ''); aiNote = null; setErr('manual', String(err && err.message || err)); throw err; }
+    })();
+  };
+  document.addEventListener('change', function (e) { var t = e.target; if (t.dataset && t.dataset.modfile !== undefined && t.files.length) { var f = t.files[0]; t.value = ''; modAdd(f); } });
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act, p = proj();
+    if (act === 'modopen') { mod = { list: [], skipped: [], name: '', file: '', open: -1 }; modModal(); }
+    else if (act === 'modcmp') { var k = +el.dataset.i; mod.open = mod.open === k ? -1 : k; modRender(); }
+    else if (act === 'modapply') {
+      var picked = [].map.call(document.querySelectorAll('[data-modi]:checked'), function (c) { return mod.list[+c.dataset.modi]; }); if (!picked.length) return toast('Select at least one section.');
+      var nm = (($('#modname') || {}).value || '').trim() || 'Modification';
+      var nrep = picked.filter(function (x) { return p.sections.some(function (s) { return s.code === x.code; }); }).length;
+      if (!confirm('Apply “' + nm + '”? ' + nrep + ' existing section' + (nrep === 1 ? '' : 's') + ' will be replaced and ' + (picked.length - nrep) + ' added. You can undo it afterward.')) return;
+      var items = [];
+      picked.forEach(function (x) {
+        var s = p.sections.filter(function (q) { return q.code === x.code; })[0];
+        if (s) {
+          items.push({ code: x.code, action: 'replaced', prev: { title: s.title, body: s.body, questions: s.questions, answers: s.answers, aiKeys: s.aiKeys, status: s.status, on: s.on } });
+          s.body = x.body; s.title = x.title || s.title; s.questions = []; s.answers = {}; s.aiKeys = []; s.status = 'draft'; s.on = true;
+        } else {
+          var n = newSection(x.code, x.title); n.body = x.body; n.questions = []; n.answers = {}; n.libRev = 0; p.sections.push(n); items.push({ code: x.code, action: 'added' });
+        }
+      });
+      p.sections.sort(function (a, b) { return SS.sortCodes(a.code, b.code); });
+      (p.mods = p.mods || []).unshift({ id: SS.uid(), name: nm, at: Date.now(), items: items });
+      saveProjects(); closeModal(); render(); toast(nrep + ' replaced, ' + (picked.length - nrep) + ' added');
+    }
+    else if (act === 'modundo') {
+      var m = (p.mods || []).filter(function (q) { return q.id === el.dataset.id; })[0]; if (!m) return;
+      if (!confirm('Undo “' + m.name + '”? Sections it replaced go back to their earlier text, and sections it added are removed. Any edits made to those sections since will be lost.')) return;
+      m.items.forEach(function (it) {
+        var i = p.sections.findIndex(function (s) { return s.code === it.code; }); if (i < 0) return;
+        if (it.action === 'added') p.sections.splice(i, 1); else { var s = p.sections[i], pv = it.prev; s.title = pv.title; s.body = pv.body; s.questions = pv.questions; s.answers = pv.answers; s.aiKeys = pv.aiKeys; s.status = pv.status; s.on = pv.on; }
+      });
+      p.mods = p.mods.filter(function (q) { return q.id !== m.id; }); saveProjects(); render(); toast('Undone');
+    }
+  });
+})();
+
+
+/* ================= PRODUCTS: cut sheet -> researched facts -> written section (cut sheet only, no web) ================= */
+(function () {
+  var prod = { pid: null, files: [], label: '', notes: '', facts: null, code: '', title: '', draft: null, warn: [] };
+  function reset(p) { prod = { pid: p && p.id, files: [], label: '', notes: '', facts: null, code: '', title: '', draft: null, warn: [] }; }
+  var FACT_PROMPT = function () {
+    var cat = SS.CATALOG.map(function (c) { return c[0] + ' ' + c[1]; }).join('; ');
+    return 'You are reading manufacturer product literature (cut sheets, data sheets, installation guides, warranties) for an architect who will write a specification section for this product.\n\nExtract ONLY what the documents actually state. Do not infer, estimate, or add anything from general knowledge. If something is not stated, leave it out. Record the page number where each property or standard appears when you can tell.\n\nSuggest the best CSI MasterFormat section for the product. Prefer one from this list when it fits: ' + cat + '. Otherwise give the correct MasterFormat number and title.\n\nReturn ONLY a JSON object:\n{"manufacturer":"","productName":"","modelNumbers":[],"category":"","suggestedSection":{"code":"09 650","title":""},"summary":"one or two sentences taken from the document","properties":[{"name":"","value":"","standard":"","page":""}],"standards":[{"org":"ASTM","number":"E84","title":"","page":""}],"dimensions":[""],"materials":[""],"finishes":[""],"installation":[""],"warranty":"","certifications":[""],"accessories":[""],"unclear":["things a specifier would need that the documents do not state or state ambiguously"]}';
+  };
+  var SECTION_PROMPT = function (code, title, facts, notes, existing) {
+    return 'You are a senior architectural specifier writing a SPECIFICATION SECTION for ai3, Inc., an Atlanta architecture, interior design and FF&E firm. Write SECTION ' + code + ' – ' + title + ' for the product below, in CSI SectionFormat (three parts), architect scope, concise and complete.\n\n' + GRAMMAR + '\n\nSOURCE FACTS (extracted from the manufacturer\'s literature; this is the ONLY source of product data):\n' + JSON.stringify(facts) + '\n\n' + (notes ? 'DESIGNER NOTES (where and how the product is used):\n' + notes + '\n\n' : '') +
+      (existing ? 'EXISTING AI3 TEXT FOR THIS SECTION. Follow its article structure, numbering, wording and the submittal, quality assurance, delivery, warranty and execution language. Replace only the product-specific content:\n' + existing.slice(0, 14000) + '\n\n' : 'There is no existing ai3 text for this section. Use standard CSI article names (SUMMARY, REFERENCES, ACTION SUBMITTALS, QUALITY ASSURANCE, DELIVERY, STORAGE, AND HANDLING, WARRANTY, MANUFACTURERS, MATERIALS, EXAMINATION, INSTALLATION, FIELD QUALITY CONTROL, PROTECTION).\n\n') +
+      'RULES:\n- Basis of design: name the manufacturer and product or model from the facts. Add "Other acceptable manufacturers: [list manufacturers]" as a placeholder. Name no other manufacturer.\n- Every number, rating, dimension, standard and warranty term must come from SOURCE FACTS. Do not add values from your own knowledge. Where the section needs a value the facts do not give, write a [bracketed blank], for example [color to be selected by Architect].\n- Write requirements as requirements ("shall comply with"), not as marketing description.\n- Cite only standards that appear in the facts.\n- Use literal text. Do not use {{variables}} or ?( ) conditions.\n- Add one N: note to the specifier for each item in "unclear", and one N: note near the top saying the section was written from the manufacturer literature and must be reviewed.\n\nReturn ONLY JSON: {"title":"section title","body":"line\\nline..."}';
+  };
+  function docParts(files) {
+    return Promise.all(files.map(async function (f) {
+      var ext = (f.name.split('.').pop() || '').toLowerCase(), u8 = await readBuf(f);
+      if (ext === 'docx') return { type: 'text', text: 'DOCUMENT ' + f.name + ':\n' + docxText(u8).slice(0, 60000) };
+      if (u8.length > MAX_BYTES) throw new Error(f.name + ' is too large (' + Math.round(u8.length / 1048576) + ' MB). Cut sheets should be small; use only the product pages.');
+      return { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64(u8) } };
+    }));
+  }
+  function numsNotIn(body, facts) {
+    var hay = JSON.stringify(facts).replace(/,(?=\d)/g, ''), seen = {}, out = [];
+    body.split('\n').filter(function (l) { return !/^N:/.test(l); }).forEach(function (l) {
+      (l.replace(/,(?=\d{3})/g, '').match(/\d+(?:\.\d+)?/g) || []).forEach(function (n) { if (n.length < 2 && n.indexOf('.') < 0) return; if (hay.indexOf(n) < 0 && !seen[n]) { seen[n] = 1; out.push(n); } });
+    });
+    return out;
+  }
+  window.prodAdd = function (files) {
+    files.forEach(function (f) { var e = (f.name.split('.').pop() || '').toLowerCase(); if ((e === 'pdf' || e === 'docx') && !prod.files.some(function (x) { return x.name === f.name && x.size === f.size; })) prod.files.push(f); });
+    if (ui.tab === 'products') render();
+  };
+  window.viewProducts = function (p) {
+    if (prod.pid !== p.id) reset(p);
+    var fl = prod.files.map(function (f, i) { return '<div class="row" style="padding:2px 0"><span class="small">' + esc(f.name) + '</span><span class="small muted">' + Math.max(1, Math.round(f.size / 1024)) + ' KB</span><button class="btn sm danger" data-act="prodrm" data-i="' + i + '">✕</button></div>'; }).join('');
+    var h = '<div class="wrap"><div class="panel"><h2>Product to spec</h2><div class="small muted" style="margin-bottom:10px">Drop the manufacturer’s cut sheet (add the installation guide and warranty too if you have them). The AI pulls out only what those documents state, you review the facts, and it writes a specification section from them. Nothing is researched on the web, and anything the documents do not say is left as a [bracketed blank] for you.</div>' +
+      '<label class="dz" data-dz="prod"><span class="dzt">✨ Drop cut sheets (PDF or Word) here</span><span class="dzs">or click to browse. Select every document for ONE product.</span><input type="file" multiple accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-prodfile style="display:none"></label>' + (fl ? '<div style="margin:8px 0">' + fl + '</div>' : '') +
+      '<div class="fld" style="margin-top:8px"><label>Where and how it is used (optional)</label><textarea data-prodf="notes" rows="2" placeholder="Guestroom corridors, basis of design, Owner-selected color…">' + esc(prod.notes) + '</textarea></div>' +
+      '<div class="row"><button class="btn pri" data-act="prodread"' + (prod.files.length ? '' : ' disabled') + '>Read the cut sheet</button><span class="small" id="prog-manual"></span></div><div class="small" id="err-manual" style="color:#a33;display:none"></div></div>';
+    if (prod.facts) h += factsPanel(p);
+    if (prod.draft) h += draftPanel(p);
+    var log = (p.products || []).map(function (x) { return '<tr><td>' + esc(x.manufacturer) + ' ' + esc(x.productName) + '</td><td class="small">' + esc(x.code) + '</td><td class="small muted">' + dstr(x.at) + '</td><td style="text-align:right"><button class="btn sm" data-act="prodopen" data-code="' + esc(x.code) + '">Open section</button></td></tr>'; }).join('');
+    if (log) h += '<div class="panel"><h2>Products specified in this project</h2><table class="tbl"><tr><th>Product</th><th>Section</th><th>Added</th><th></th></tr>' + log + '</table></div>';
+    return h + '</div>';
+  };
+  function factsPanel(p) {
+    var f = prod.facts, L = function (a) { return (a || []).filter(Boolean); };
+    var props = L(f.properties).map(function (x) { return '<tr><td class="small">' + esc(x.name) + '</td><td class="small">' + esc(x.value) + '</td><td class="small muted">' + esc(x.standard || '') + '</td><td class="small muted">' + (x.page ? 'p. ' + esc(x.page) : '') + '</td></tr>'; }).join('');
+    var rows = [['Manufacturer', f.manufacturer], ['Product', f.productName], ['Models', L(f.modelNumbers).join(', ')], ['Summary', f.summary], ['Dimensions', L(f.dimensions).join('; ')], ['Materials', L(f.materials).join('; ')], ['Finishes', L(f.finishes).join('; ')], ['Installation', L(f.installation).join('; ')], ['Warranty', f.warranty], ['Certifications', L(f.certifications).join('; ')], ['Standards cited', L(f.standards).map(function (x) { return (x.org || '') + ' ' + (x.number || ''); }).join(', ')], ['Accessories', L(f.accessories).join('; ')]]
+      .filter(function (r) { return r[1]; }).map(function (r) { return '<tr><td class="small" style="white-space:nowrap;vertical-align:top"><b>' + r[0] + '</b></td><td class="small" colspan="3">' + esc(r[1]) + '</td></tr>'; }).join('');
+    var un = L(f.unclear).length ? '<div class="small" style="margin-top:8px;color:#a33"><b>Not stated or unclear in the documents</b> (these become blanks in the section):<ul style="margin:4px 0 0 18px">' + L(f.unclear).map(function (u) { return '<li>' + esc(u) + '</li>'; }).join('') + '</ul></div>' : '';
+    var opts = SS.CATALOG.map(function (c) { return '<option value="' + c[0] + '"></option>'; }).join('');
+    return '<div class="panel"><h2>What the cut sheet says</h2><div class="small muted" style="margin-bottom:6px">Read straight from your documents. Check it before writing the section.</div><table class="tbl">' + rows + (props ? '<tr><th>Property</th><th>Value</th><th>Standard</th><th>Page</th></tr>' + props : '') + '</table>' + un +
+      '<div class="two" style="margin-top:12px"><div class="fld"><label>Section number</label><input type="text" list="prodcodes" data-prodf="code" value="' + esc(prod.code) + '" placeholder="09 650"><datalist id="prodcodes">' + opts + '</datalist></div><div class="fld"><label>Section title</label><input type="text" data-prodf="title" value="' + esc(prod.title) + '"></div></div>' +
+      (prod.code && p.sections.some(function (s) { return s.code === prod.code; }) ? '<div class="small muted">This project already has section ' + esc(prod.code) + '. The new text will replace it only after you approve, and it can be undone.</div>' : '') +
+      '<div class="row" style="margin-top:8px"><button class="btn pri" data-act="prodwrite">Write the section</button></div></div>';
+  }
+  function draftPanel(p) {
+    var ex = p.sections.filter(function (s) { return s.code === prod.code; })[0], body = prod.draft.body;
+    var view;
+    if (ex && ex.body.trim()) { var r = renderedFor(p, 'all', false).filter(function (q) { return q.code === ex.code; })[0], ops = SS.diffLines(r ? renderedBody(r) : ex.body, body), ds = SS.diffStats(ops); view = '<div class="small muted" style="margin-bottom:4px"><span class="badge r">− current</span> <span class="badge g">+ new</span> • ' + ds.add + ' lines added, ' + ds.del + ' removed</div><style>' + SS.REDLINE_CSS + '</style><div style="max-height:50vh;overflow:auto;border-radius:12px;background:var(--inset);padding:6px 0">' + SS.redlineHtml(ops, 3) + '</div>'; }
+    else view = '<pre style="white-space:pre-wrap;max-height:50vh;overflow:auto;background:var(--inset);border-radius:12px;padding:10px;font-size:12.5px">' + esc(body) + '</pre>';
+    var warn = prod.warn.length ? '<div class="small" style="margin:8px 0;color:#a33"><b>Check these figures.</b> They do not appear in the cut sheet facts. Some may be ordinary boilerplate: ' + esc(prod.warn.join(', ')) + '</div>' : '<div class="small muted" style="margin:8px 0">Every figure in the text appears in the cut sheet facts.</div>';
+    return '<div class="panel"><h2>Section ' + esc(prod.code) + ' – ' + esc(prod.draft.title) + '</h2>' + warn + view +
+      '<div class="row" style="margin-top:10px"><button class="btn pri" data-act="prodapply">' + (ex ? 'Replace section in project' : 'Add section to project') + '</button><button class="btn" data-act="proddiscard">Discard</button></div></div>';
+  }
+  document.addEventListener('input', function (e) { var t = e.target; if (t.dataset && t.dataset.prodf) prod[t.dataset.prodf] = t.value; });
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (!t.dataset) return;
+    if (t.dataset.prodfile !== undefined && t.files.length) { prodAdd([].slice.call(t.files)); t.value = ''; }
+    else if (t.dataset.prodf === 'code') { var c = SS.CATALOG.filter(function (x) { return x[0] === t.value.trim(); })[0]; if (c && !prod.title) { prod.title = c[1]; render(); } }
+  });
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act, p = proj();
+    if (act === 'prodrm') { prod.files.splice(+el.dataset.i, 1); render(); }
+    else if (act === 'prodread') {
+      if (!prod.files.length) return; var files = prod.files.slice(); prod.facts = null; prod.draft = null; setErr('manual', '');
+      withBusy('prodread', el, async function () {
+        try {
+          setProg('manual', 'AI is reading the cut sheet…');
+          var parts = await docParts(files); aiNote = function (m) { setProg('manual', m); };
+          var out = parseJson((await aiFull(parts.concat([{ type: 'text', text: FACT_PROMPT() }]), 6000)).text); aiNote = null;
+          if (!out || (!out.manufacturer && !out.productName && !(out.properties || []).length)) throw new Error('No product information could be read from those documents.');
+          prod.facts = out; var sg = out.suggestedSection || {}; prod.code = String(sg.code || '').replace(/^(\d{2})(\d{3,4})$/, '$1 $2'); prod.title = sg.title || ''; setProg('manual', ''); render();
+        } catch (err) { setProg('manual', ''); aiNote = null; setErr('manual', String(err && err.message || err)); throw err; }
+      })();
+    }
+    else if (act === 'prodwrite') {
+      var code = (prod.code || '').trim().replace(/^(\d{2})\s?(\d{3,4})$/, '$1 $2'); if (!/^\d{2} \d{3,4}$/.test(code)) return toast('Enter a section number like 09 650.');
+      prod.code = code; if (!prod.title) prod.title = (SS.CATALOG.filter(function (x) { return x[0] === code; })[0] || [0, ''])[1] || (prod.facts.suggestedSection || {}).title || '';
+      var lib = library[code], cur = p.sections.filter(function (s) { return s.code === code; })[0], existing = (cur && cur.body.trim()) ? cur.body : (lib && lib.body) || '';
+      withBusy('prodwrite', el, async function () {
+        setProg('manual', 'AI is writing the section…');
+        try {
+          var out = parseJson(await ai(SECTION_PROMPT(code, prod.title, prod.facts, prod.notes, existing), 9000));
+          if (typeof out.body !== 'string' || !out.body.trim()) throw new Error('The AI returned no section text.');
+          prod.draft = { title: (out.title || prod.title).toString(), body: out.body.replace(/\r/g, '') }; prod.warn = numsNotIn(prod.draft.body, prod.facts); setProg('manual', ''); render();
+        } catch (err) { setProg('manual', ''); setErr('manual', String(err && err.message || err)); throw err; }
+      })();
+    }
+    else if (act === 'proddiscard') { prod.draft = null; prod.warn = []; render(); }
+    else if (act === 'prodapply') {
+      var d = prod.draft, f = prod.facts, s = p.sections.filter(function (q) { return q.code === prod.code; })[0];
+      if (s && s.body.trim() && !confirm('Replace the text of section ' + s.code + ' in this project? You can undo it from Issue / export, under Modifications.')) return;
+      var items = [];
+      if (s) { items.push({ code: s.code, action: 'replaced', prev: { title: s.title, body: s.body, questions: s.questions, answers: s.answers, aiKeys: s.aiKeys, status: s.status, on: s.on } }); s.body = d.body; s.title = d.title; s.questions = []; s.answers = {}; s.aiKeys = []; s.status = 'draft'; s.on = true; }
+      else { var n = newSection(prod.code, d.title); n.body = d.body; n.questions = []; n.answers = {}; n.libRev = 0; p.sections.push(n); p.sections.sort(function (a, b) { return SS.sortCodes(a.code, b.code); }); items.push({ code: prod.code, action: 'added' }); }
+      var nm = 'Product spec: ' + [f.manufacturer, f.productName].filter(Boolean).join(' ');
+      (p.mods = p.mods || []).unshift({ id: SS.uid(), name: nm, at: Date.now(), items: items });
+      (p.products = p.products || []).unshift({ id: SS.uid(), manufacturer: f.manufacturer || '', productName: f.productName || '', code: prod.code, at: Date.now(), facts: f });
+      saveProjects(); var code2 = prod.code; reset(p); ui.tab = 'sections'; ui.code = code2; render(); toast('Section ' + code2 + ' written. Review it in the editor.', 5000);
+    }
+    else if (act === 'prodopen') { ui.tab = 'sections'; ui.code = el.dataset.code; render(); }
+  });
+})();
+
+
+/* ================= MERGE: licensed documents (AIA forms and others) into the exported PDF ================= */
+(function () {
+  var mg = { map: null, base: null, docs: [], busy: false };
+  window.mergePanel = function (p) {
+    return '<div class="panel"><div class="row"><div><h2 style="margin:0">Merge documents into the PDF</h2><div class="small muted" style="margin-top:4px">Add the licensed AIA forms (General Conditions, Agreement, Instructions to Bidders) or any other PDF to the manual. Slate asks which documents to merge and where each one goes. The merged documents get their own bookmarks.</div></div><div class="sp"></div><button class="btn" data-act="mergeopen">Merge documents…</button></div></div>';
+  };
+  function pageMapFor(p) {
+    return new Promise(function (resolve, reject) {
+      var r = renderedFor(p, 'all', ui.notes); if (!r.length) return reject(new Error('Nothing to export yet. Included sections have no text.'));
+      var html = SS.manualHtml(expProject(p), r, { cover: true });
+      var f = document.createElement('iframe'); f.style.cssText = 'position:fixed;left:-10000px;top:0;width:816px;height:1056px;border:0'; document.body.appendChild(f);
+      f.onload = function () {
+        var tries = 0; (function go() {
+          var w = f.contentWindow; if (!w.__ready && tries++ < 150) return setTimeout(go, 100);
+          try {
+            var pgs = [].slice.call(w.document.querySelectorAll('#out > .pg')), pts = [], tocEnd = 1, sawToc = false;
+            pgs.forEach(function (pg, i) {
+              var h1 = pg.querySelector('h1.bm'), h2 = pg.querySelector('h2.bm');
+              if (h1 && h1.id === 's-01001') { sawToc = true; }
+              if (h1 && !h1.id) pts.push({ kind: 'div', label: h1.textContent.trim(), at: i });
+              if (h2) pts.push({ kind: 'sec', label: h2.textContent.trim().replace(/^SECTION /, ''), at: i });
+              if (sawToc && !h2 && !(h1 && !h1.id) && pts.length === 0) tocEnd = i + 1;
+            });
+            var first = pts.length ? pts[0].at : pgs.length; if (first > tocEnd) tocEnd = first;
+            f.remove(); resolve({ total: pgs.length, pts: pts, tocEnd: tocEnd });
+          } catch (e) { f.remove(); reject(e); }
+        })();
+      };
+      f.srcdoc = html;
+    });
+  }
+  function posOptions(sel) {
+    var m = mg.map, o = [['c', 'After the cover'], ['t', 'After the table of contents']].concat(m.pts.map(function (x, i) { return ['p' + i, 'Before ' + (x.kind === 'div' ? x.label : 'Section ' + x.label)]; }), [['e', 'At the end of the manual'], ['n', 'After page number…']]);
+    return o.map(function (x) { return '<option value="' + x[0] + '"' + (sel === x[0] ? ' selected' : '') + '>' + esc(x[1]) + '</option>'; }).join('');
+  }
+  function guessPos(name) {
+    var n = name.toLowerCase(), m = mg.map; if (!m) return 't';
+    if (/a201|a101|a133|a701|a105|general conditions|agreement|instructions to bidders|bid form|supplementary/.test(n)) {
+      var i = -1; m.pts.forEach(function (x, k) { if (i < 0 && /DIVISION 01/i.test(x.label)) i = k; }); return i >= 0 ? 'p' + i : 't';
+    }
+    return 'e';
+  }
+  function idxFor(d) {
+    var m = mg.map, v = d.pos;
+    if (v === 'c') return 1; if (v === 't') return m.tocEnd; if (v === 'e') return m.total;
+    if (v === 'n') return Math.max(0, Math.min(m.total, parseInt(d.page, 10) || 0));
+    return m.pts[+v.slice(1)].at;
+  }
+  function mergeModal() {
+    var m = mg.map;
+    var rows = mg.docs.map(function (d, i) {
+      return '<tr><td class="small" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(d.file.name) + '">' + esc(d.file.name) + '</td><td><input type="text" data-mglabel="' + i + '" value="' + esc(d.label) + '" style="width:100%;padding:4px 6px"></td>' +
+        '<td><select data-mgpos="' + i + '">' + posOptions(d.pos) + '</select>' + (d.pos === 'n' ? ' <input type="number" min="0" data-mgpage="' + i + '" value="' + esc(d.page || '') + '" style="width:70px;padding:4px" placeholder="page">' : '') + '</td>' +
+        '<td><button class="btn sm danger" data-act="mgrm" data-i="' + i + '">✕</button></td></tr>';
+    }).join('');
+    modal('<h2>Merge documents into the PDF</h2><div class="small muted" style="margin-bottom:10px">Step 1: export the manual to PDF the usual way (PDF button, then Save as PDF) and choose that file here. Step 2: add the documents to merge and say where each one goes.</div>' +
+      '<div class="fld"><label>1. The manual PDF saved from Slate</label><input type="file" accept=".pdf,application/pdf" data-mgbase>' + (mg.base ? '<div class="small" style="margin-top:4px">' + esc(mg.base.name) + (mg.basePages ? ' • ' + mg.basePages + ' pages' : '') + (m && mg.basePages && mg.basePages !== m.total ? ' <span style="color:#a33">• Slate expects ' + m.total + ' pages, so positions may be off. Check the positions, or use “After page number”.</span>' : '') + '</div>' : '') + '</div>' +
+      '<div class="fld"><label>2. Documents to merge</label><label class="dz" data-dz="mg"><span class="dzt">✨ Drop PDFs here (AIA forms, bid forms, anything)</span><span class="dzs">or click to browse. Pick as many as you like.</span><input type="file" multiple accept=".pdf,application/pdf" data-mgdocs style="display:none"></label></div>' +
+      (m ? '' : '<div class="small muted">Reading the manual layout…</div>') +
+      (rows ? '<div style="max-height:36vh;overflow:auto;border:1px solid var(--border);border-radius:8px"><table class="tbl"><tr><th>File</th><th>Bookmark name</th><th>Goes</th><th></th></tr>' + rows + '</table></div>' : '') +
+      '<div class="small" id="mgstatus" style="margin-top:8px;min-height:18px"></div>' +
+      '<div class="mfoot"><button class="btn" data-act="closemodal">Cancel</button><button class="btn pri" data-act="mgrun"' + (mg.base && mg.docs.length && m ? '' : ' disabled') + '>Merge and download</button></div>', true);
+  }
+  window.__mk = { pageMapFor: pageMapFor, addOutline: addOutline };
+  window.mgAdd = function (files) {
+    files.forEach(function (f) { if (!/\.pdf$/i.test(f.name) || mg.docs.some(function (d) { return d.file.name === f.name && d.file.size === f.size; })) return; mg.docs.push({ file: f, label: f.name.replace(/\.pdf$/i, '').replace(/[_]+/g, ' '), pos: guessPos(f.name), page: '' }); });
+    mergeModal();
+  };
+  async function mergeRun() {
+    var PL = window.PDFLib; if (!PL) throw new Error('PDF library is missing.');
+    var st = $('#mgstatus'), say = function (t) { if (st) st.textContent = t; };
+    say('Reading the manual…'); var base = await PL.PDFDocument.load(await readBuf(mg.base), { ignoreEncryption: true, updateMetadata: false });
+    var jobs = mg.docs.map(function (d, k) { return { d: d, k: k, at: idxFor(d) }; }).sort(function (a, b) { return b.at - a.at || b.k - a.k; }), added = [];
+    for (var i = 0; i < jobs.length; i++) {
+      var j = jobs[i]; say('Merging ' + (i + 1) + ' of ' + jobs.length + ': ' + j.d.file.name + '…');
+      var src = await PL.PDFDocument.load(await readBuf(j.d.file), { ignoreEncryption: true, updateMetadata: false });
+      var pages = await base.copyPages(src, src.getPageIndices()); pages.forEach(function (pg, n) { base.insertPage(j.at + n, pg); });
+      added.push({ k: j.k, label: j.d.label, ref: pages[0].ref });
+    }
+    added.sort(function (a, b) { return a.k - b.k; }); addOutline(base, added);
+    say('Saving…'); var bytes = await base.save();
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); a.download = ((proj().number ? proj().number + ' ' : '') + (proj().name || 'Project') + ' - Project Manual (merged).pdf').replace(/[\\/:*?"<>|]/g, ''); document.body.appendChild(a); a.click(); a.remove();
+  }
+  function addOutline(base, items) {
+    var PL = window.PDFLib, ctx = base.context, cat = base.catalog, N = PL.PDFName.of.bind(PL.PDFName);
+    var outRef = cat.get(N('Outlines')), out = outRef ? ctx.lookup(outRef, PL.PDFDict) : null;
+    if (!out) { out = ctx.obj({ Type: 'Outlines', Count: 0 }); outRef = ctx.register(out); cat.set(N('Outlines'), outRef); }
+    var cnt = out.get(N('Count')); cnt = cnt && cnt.asNumber ? cnt.asNumber() : 0; if (cnt < 0) cnt = -cnt;
+    items.forEach(function (it) {
+      var d = ctx.obj({ Title: PL.PDFHexString.fromText('Merged: ' + it.label), Parent: outRef, Dest: [it.ref, N('Fit')] }), ref = ctx.register(d), last = out.get(N('Last'));
+      if (last) { d.set(N('Prev'), last); ctx.lookup(last, PL.PDFDict).set(N('Next'), ref); } else out.set(N('First'), ref);
+      out.set(N('Last'), ref); cnt++;
+    });
+    out.set(N('Count'), PL.PDFNumber.of(cnt));
+  }
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act, p = proj();
+    if (act === 'mergeopen') {
+      mg = { map: null, base: null, basePages: 0, docs: [], busy: false }; mergeModal();
+      pageMapFor(p).then(function (m) { mg.map = m; mg.docs.forEach(function (d) { d.pos = guessPos(d.file.name); }); mergeModal(); }, function (err) { closeModal(); toast('⚠ ' + (err && err.message || err), 6000); });
+    }
+    else if (act === 'mgrm') { mg.docs.splice(+el.dataset.i, 1); mergeModal(); }
+    else if (act === 'mgrun') { if (mg.busy) return; mg.busy = true; el.disabled = true; mergeRun().then(function () { mg.busy = false; closeModal(); toast('Merged PDF downloaded.', 5000); }, function (err) { mg.busy = false; el.disabled = false; var st = $('#mgstatus'); if (st) { st.style.color = '#a33'; st.textContent = 'Could not merge: ' + (err && err.message || err); } }); }
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (!t.dataset) return;
+    if (t.dataset.mgbase !== undefined && t.files.length) {
+      mg.base = t.files[0]; mg.basePages = 0; mergeModal();
+      readBuf(mg.base).then(function (u8) { return window.PDFLib.PDFDocument.load(u8, { ignoreEncryption: true, updateMetadata: false }); }).then(function (d) { mg.basePages = d.getPageCount(); mergeModal(); }, function () { mg.base = null; mergeModal(); toast('That PDF could not be opened.'); });
+    }
+    else if (t.dataset.mgdocs !== undefined && t.files.length) { mgAdd([].slice.call(t.files)); }
+    else if (t.dataset.mglabel !== undefined) mg.docs[+t.dataset.mglabel].label = t.value;
+    else if (t.dataset.mgpos !== undefined) { mg.docs[+t.dataset.mgpos].pos = t.value; mergeModal(); }
+    else if (t.dataset.mgpage !== undefined) mg.docs[+t.dataset.mgpage].page = t.value;
+  });
+})();
+
+
+/* ================= CONSULTANTS: add consultants' finished PDF specs to the manual and table of contents (no AI) ================= */
+(function () {
+  var DISC = ['Civil', 'Structural', 'Mechanical', 'Plumbing', 'Electrical', 'Mechanical / Electrical / Plumbing', 'Fire protection', 'Landscape', 'Low voltage / technology', 'Kitchen / food service', 'Lighting', 'Acoustical'];
+  var DIVN = { Civil: '31', Structural: '05', Mechanical: '23', Plumbing: '22', Electrical: '26', 'Mechanical / Electrical / Plumbing': '23', 'Fire protection': '21', Landscape: '32', 'Low voltage / technology': '27', 'Kitchen / food service': '11', Lighting: '26', Acoustical: '09' };
+  /* PDF files stay in this browser (IndexedDB). Only the list is saved with the project. */
+  var idb = null;
+  function db() {
+    return idb || (idb = new Promise(function (res, rej) { var r = indexedDB.open('slatespecs_files', 1); r.onupgradeneeded = function () { r.result.createObjectStore('f'); }; r.onsuccess = function () { res(r.result); }; r.onerror = function () { rej(r.error); }; }));
+  }
+  function tx(mode, fn) { return db().then(function (d) { return new Promise(function (res, rej) { var t = d.transaction('f', mode), st = t.objectStore('f'), q = fn(st); t.oncomplete = function () { res(q && q.result); }; t.onerror = function () { rej(t.error); }; }); }); }
+  function fput(id, blob) { return tx('readwrite', function (s) { return s.put(blob, id); }); }
+  function fget(id) { return tx('readonly', function (s) { return s.get(id); }); }
+  function fdel(id) { return tx('readwrite', function (s) { return s.delete(id); }); }
+  var have = {};   // id -> true when the PDF is on this device
+  function divOptions(sel) { return Object.keys(SS.DIVISIONS).sort().map(function (d) { return '<option value="' + d + '"' + (sel === d ? ' selected' : '') + '>' + parseInt(d, 10) + ' – ' + esc(SS.DIVISIONS[d]) + '</option>'; }).join(''); }
+  window.viewConsultants = function (p) {
+    var L = p.consultants || [];
+    (L).forEach(function (c) { if (have[c.id] === undefined) { have[c.id] = false; fget(c.id).then(function (b) { have[c.id] = !!b; if (ui.tab === 'consultants') render(); }, function () {}); } });
+    var rows = L.map(function (c, i) {
+      return '<tr><td style="white-space:nowrap"><button class="btn sm" data-act="consup" data-i="' + i + '"' + (i ? '' : ' disabled') + '>↑</button><button class="btn sm" data-act="consdn" data-i="' + i + '"' + (i < L.length - 1 ? '' : ' disabled') + '>↓</button></td>' +
+        '<td><input type="text" list="consdisc" data-cf="discipline" data-i="' + i + '" value="' + esc(c.discipline || '') + '" style="width:150px;padding:4px 6px" placeholder="Discipline"></td>' +
+        '<td><input type="text" data-cf="title" data-i="' + i + '" value="' + esc(c.title || '') + '" style="width:100%;padding:4px 6px" placeholder="Document title"></td>' +
+        '<td><select data-cf="div" data-i="' + i + '">' + divOptions(c.div) + '</select></td>' +
+        '<td><input type="text" data-cf="number" data-i="' + i + '" value="' + esc(c.number || '') + '" style="width:110px;padding:4px 6px" placeholder="23 00 00"></td>' +
+        '<td><input type="text" data-cf="issue" data-i="' + i + '" value="' + esc(c.issue || '') + '" style="width:110px;padding:4px 6px" placeholder="issue date"></td>' +
+        '<td class="small" style="white-space:nowrap">' + (c.pages || '?') + ' pp' + (have[c.id] === false ? '<div style="color:#a33">PDF not on this device <label class="btn sm" style="cursor:pointer">Attach<input type="file" accept=".pdf,application/pdf" data-consre="' + esc(c.id) + '" style="display:none"></label></div>' : '') + '</td>' +
+        '<td><button class="btn sm danger" data-act="consdel" data-i="' + i + '">✕</button></td></tr>';
+    }).join('');
+    var missing = L.filter(function (c) { return have[c.id] === false; }).length;
+    return '<div class="wrap"><div class="panel"><h2>Consultant specifications</h2><div class="small muted" style="margin-bottom:10px">Add each consultant’s finished specification as a PDF. Nothing is read by the AI and nothing is sorted: the documents go into the manual and the table of contents exactly as you list them, in the order shown here. Each one is listed under its division with its page count.</div>' +
+      '<label class="dz" data-dz="cons"><span class="dzt">✨ Drop consultant specification PDFs here</span><span class="dzs">or click to browse. One PDF per discipline or division.</span><input type="file" multiple accept=".pdf,application/pdf" data-consfile style="display:none"></label><datalist id="consdisc">' + DISC.map(function (d) { return '<option value="' + esc(d) + '">'; }).join('') + '</datalist>' +
+      (rows ? '<div style="overflow:auto;margin-top:10px"><table class="tbl"><tr><th>Order</th><th>Discipline</th><th>Title</th><th>Division</th><th>Section no(s).</th><th>Issue date</th><th>Pages</th><th></th></tr>' + rows + '</table></div>' : '<div class="empty" style="margin-top:10px">No consultant specifications added yet.</div>') + '<div class="small" id="consmsg" style="margin-top:6px;min-height:16px"></div></div>' +
+      '<div class="panel"><h2>Add them to the manual</h2><div class="small muted" style="margin-bottom:8px">The <b>table of contents</b> lists every document above, in the PDF and the Word file, under its division. To put the <b>pages</b> into the PDF: export the manual to PDF the usual way (Issue / export, PDF button, Save as PDF), then choose that file below. Slate inserts each consultant PDF at the end of its division and adds a bookmark for it. Word files get the table of contents rows only, because Word cannot hold a PDF; add those pages from the PDF.' + (missing ? ' <span style="color:#a33">' + missing + ' PDF' + (missing > 1 ? 's are' : ' is') + ' not on this device. Attach them first.</span>' : '') + '</div>' +
+      '<div class="row"><input type="file" accept=".pdf,application/pdf" data-consbase><button class="btn pri" data-act="consmerge" disabled id="consmerge">Merge into the manual PDF</button></div><div class="small" id="consrun" style="margin-top:6px;min-height:16px"></div></div></div>';
+  };
+  window.__consCopy = async function (list) {
+    var out = [];
+    for (var i = 0; i < list.length; i++) { var c = Object.assign({}, list[i]), old = c.id; c.id = SS.uid(); try { var b = await fget(old); if (b) { await fput(c.id, b); have[c.id] = true; } else have[c.id] = false; } catch (e) { have[c.id] = false; } out.push(c); }
+    return out;
+  };
+  window.consAdd = async function (files) {
+    var p = proj(), n = 0, msg = $('#consmsg'); p.consultants = p.consultants || [];
+    for (var i = 0; i < files.length; i++) {
+      var f = files[i]; if (!/\.pdf$/i.test(f.name)) continue;
+      try {
+        var u8 = await readBuf(f), d = await window.PDFLib.PDFDocument.load(u8, { ignoreEncryption: true, updateMetadata: false }), id = SS.uid();
+        await fput(id, new Blob([u8], { type: 'application/pdf' })); have[id] = true;
+        var nm = f.name.replace(/\.pdf$/i, '').replace(/[_]+/g, ' '), disc = DISC.filter(function (x) { return nm.toLowerCase().indexOf(x.toLowerCase().split(' ')[0]) >= 0; })[0] || '';
+        p.consultants.push({ id: id, discipline: disc, title: nm, div: DIVN[disc] || '23', number: '', issue: '', pages: d.getPageCount(), file: f.name }); n++;
+      } catch (err) { toast('⚠ ' + f.name + ': ' + (err && err.message || err), 6000); }
+    }
+    if (n) { saveProjects(); render(); }
+  };
+  async function consMerge() {
+    var p = proj(), PL = window.PDFLib, say = function (t, bad) { var el = $('#consrun'); if (el) { el.style.color = bad ? '#a33' : ''; el.textContent = t; } };
+    var base = $('[data-consbase]').files[0]; if (!base) return;
+    var list = (p.consultants || []).slice(); if (!list.length) return say('Add consultant PDFs first.', true);
+    say('Reading the manual layout…'); var map = await window.__mk.pageMapFor(p);
+    var basePdf = await PL.PDFDocument.load(await readBuf(base), { ignoreEncryption: true, updateMetadata: false }), warn = basePdf.getPageCount() !== map.total;
+    if (warn && !confirm('The PDF has ' + basePdf.getPageCount() + ' pages but Slate expects ' + map.total + '. Positions may be off. Merge anyway?')) return say('');
+    var jobs = [];
+    for (var k = 0; k < list.length; k++) {
+      var c = list[k], blob = await fget(c.id); if (!blob) throw new Error('“' + c.title + '” is not on this device. Attach its PDF first.');
+      var at = map.total, dv = parseInt(c.div, 10);
+      for (var q = 0; q < map.pts.length; q++) { var x = map.pts[q]; if (x.kind === 'sec' && parseInt(SS.divOf(x.label.split(' ')[0] + ' ' + x.label.split(' ')[1]), 10) > dv) { at = x.at; break; } }
+      jobs.push({ c: c, k: k, at: at, blob: blob });
+    }
+    jobs.sort(function (a, b) { return b.at - a.at || b.k - a.k; }); var added = [];
+    for (var j = 0; j < jobs.length; j++) {
+      say('Merging ' + (j + 1) + ' of ' + jobs.length + ': ' + jobs[j].c.title + '…');
+      var src = await PL.PDFDocument.load(await readBuf(jobs[j].blob), { ignoreEncryption: true, updateMetadata: false });
+      var pages = await basePdf.copyPages(src, src.getPageIndices()); pages.forEach(function (pg, n) { basePdf.insertPage(jobs[j].at + n, pg); });
+      added.push({ k: jobs[j].k, label: [jobs[j].c.discipline, jobs[j].c.title].filter(Boolean).join(' – '), ref: pages[0].ref });
+    }
+    added.sort(function (a, b) { return a.k - b.k; }); window.__mk.addOutline(basePdf, added);
+    say('Saving…'); var bytes = await basePdf.save();
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); a.download = ((p.number ? p.number + ' ' : '') + (p.name || 'Project') + ' - Project Manual (with consultants).pdf').replace(/[\\/:*?"<>|]/g, ''); document.body.appendChild(a); a.click(); a.remove();
+    say('Done. The merged PDF was downloaded.');
+  }
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (!t.dataset) return; var p = proj();
+    if (t.dataset.consfile !== undefined && t.files.length) { var fs = [].slice.call(t.files); t.value = ''; consAdd(fs); }
+    else if (t.dataset.consbase !== undefined) { var b = $('#consmerge'); if (b) b.disabled = !t.files.length; }
+    else if (t.dataset.consre !== undefined && t.files.length) {
+      var f = t.files[0], id = t.dataset.consre; readBuf(f).then(function (u8) { return fput(id, new Blob([u8], { type: 'application/pdf' })); }).then(function () { have[id] = true; render(); toast('Attached'); }, function (er) { toast('⚠ ' + er.message); });
+    }
+    else if (t.dataset.cf !== undefined && p) {
+      var c = (p.consultants || [])[+t.dataset.i]; if (!c) return; c[t.dataset.cf] = t.value.trim();
+      if (t.dataset.cf === 'discipline' && DIVN[c.discipline]) { c.div = DIVN[c.discipline]; render(); }
+      saveSoon();
+    }
+  });
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act, p = proj();
+    if (act === 'consup' || act === 'consdn') { var i = +el.dataset.i, j = act === 'consup' ? i - 1 : i + 1, L = p.consultants; if (j < 0 || j >= L.length) return; var t = L[i]; L[i] = L[j]; L[j] = t; saveProjects(); render(); }
+    else if (act === 'consdel') { var c = p.consultants[+el.dataset.i]; if (!confirm('Remove “' + c.title + '” from this project? Its PDF is deleted from this device.')) return; p.consultants.splice(+el.dataset.i, 1); fdel(c.id).catch(function () {}); delete have[c.id]; saveProjects(); render(); }
+    else if (act === 'consmerge') { el.disabled = true; consMerge().then(function () { el.disabled = false; }, function (err) { el.disabled = false; var r = $('#consrun'); if (r) { r.style.color = '#a33'; r.textContent = 'Could not merge: ' + (err && err.message || err); } }); }
+  });
+})();
+
+
+/* ================= USABILITY: duplicate, find, new-project wizard, overview, section history ================= */
+(function () {
+  var TYPE_OF = function (p) { return p.ptype ? SS.PTYPE_LABELS[p.ptype] : ''; };
+
+  /* ---------- 5. section history / undo (captures every body change at save time) ---------- */
+  var lastBody = {}, lastEdit = {}, sp0 = saveProjects;
+  function histKey(p, s) { return p.id + '|' + s.code; }
+  function histBase(p) { p.sections.forEach(function (s) { var k = histKey(p, s); if (lastBody[k] === undefined) lastBody[k] = s.body; }); }
+  function histObserve(typing) {
+    var now = Date.now();
+    projects.forEach(function (p) {
+      p.sections.forEach(function (s) {
+        var k = histKey(p, s), prev = lastBody[k];
+        if (prev === undefined) { lastBody[k] = s.body; return; }
+        if (prev === s.body) return;
+        var gap = now - (lastEdit[k] || 0), big = Math.abs(prev.length - s.body.length) > 500;
+        if (prev.trim() && (!typing || big || gap > 60000)) {
+          var h = s.hist = s.hist || [];
+          h.unshift({ body: prev, at: now, why: typing ? (big ? 'Before a large edit' : 'Before editing') : 'Before a change (AI, library or import)' });
+          if (h.length > 6) h.length = 6;
+        }
+        lastEdit[k] = now; lastBody[k] = s.body;
+      });
+    });
+  }
+  saveProjects = function () { var t = !!ui.typing; ui.typing = false; histObserve(t); sp0(); };
+  var viewProject0 = viewProject;
+  viewProject = function () { var p = proj(); if (p) histBase(p); return viewProject0(); };
+  function ago(t) { var m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago'; }
+  function histRestore(p, s, i) {
+    var h = s.hist, pv = h[i]; if (!pv) return; var cur = s.body;
+    h.splice(i, 1); h.unshift({ body: cur, at: Date.now(), why: 'Before restoring an earlier version' }); if (h.length > 6) h.length = 6;
+    s.body = pv.body; lastBody[histKey(p, s)] = s.body; lastEdit[histKey(p, s)] = Date.now(); sp0(); render();
+  }
+  function histModal(p, s, open) {
+    var h = s.hist || [];
+    modal('<h2>History – ' + esc(s.code) + ' ' + esc(s.title) + '</h2><div class="small muted" style="margin-bottom:8px">Earlier versions of this section’s text, saved automatically before AI rewrites, library changes, imports and larger edits. Restoring keeps your current text in the list, so you can switch back.</div>' +
+      (h.length ? h.map(function (x, i) {
+        var ops = open === i ? SS.diffLines(x.body, s.body) : null, ds = ops ? SS.diffStats(ops) : null;
+        return '<div style="border-bottom:1px solid var(--line2);padding:8px 0"><div class="row"><b>' + ago(x.at) + '</b><span class="small muted">' + esc(x.why) + ' • ' + x.body.split('\n').length + ' lines</span><div class="sp"></div><button class="btn sm" data-act="histcmp" data-i="' + i + '">' + (open === i ? 'Hide' : 'Compare with now') + '</button><button class="btn sm pri" data-act="histrestore" data-i="' + i + '">Restore</button></div>' +
+          (ops ? '<div class="small muted" style="margin:6px 0"><span class="badge r">− that version</span> <span class="badge g">+ now</span> • ' + ds.add + ' lines added, ' + ds.del + ' removed</div><style>' + SS.REDLINE_CSS + '</style><div style="max-height:34vh;overflow:auto;border-radius:12px;background:var(--inset);padding:6px 0">' + (ds.changed ? SS.redlineHtml(ops, 3) : '<div class="empty">Same as now.</div>') + '</div>' : '') + '</div>';
+      }).join('') : '<div class="empty">No earlier versions yet. They are saved as you work.</div>') +
+      '<div class="mfoot"><button class="btn" data-act="closemodal">Close</button></div>', true);
+  }
+
+  /* ---------- 1. duplicate project ---------- */
+  var dup = null;
+  function dupModal() {
+    var src = projects.filter(function (x) { return x.id === dup.id; })[0]; if (!src) return;
+    modal('<h2>Duplicate project</h2><div class="small muted" style="margin-bottom:8px">Start a new project from “' + esc(src.name || 'Untitled') + '”. The project number, owner, address, issue date, issue history, submittals, notes and sources are not copied.</div>' +
+      '<div class="two"><div class="fld"><label>New project name</label><input type="text" id="dupname" value="' + esc(dup.name) + '"></div><div class="fld"><label>Project number</label><input type="text" id="dupnum" placeholder="optional"></div></div>' +
+      '<div class="fld"><label>Sections</label><label class="small" style="display:block"><input type="radio" name="dupmode" value="text" checked> Copy the section text and answers as they are</label><label class="small" style="display:block"><input type="radio" name="dupmode" value="list"> Copy only the list of sections, with fresh master text and blank answers</label></div>' +
+      '<label class="small" style="display:block"><input type="checkbox" id="dupcode" checked> Keep the building code and contract form</label>' +
+      '<label class="small" style="display:block"><input type="checkbox" id="dupteam"> Keep the design team (interior, structural, CM, MEP, civil, landscape)</label>' +
+      '<label class="small" style="display:block"><input type="checkbox" id="dupcons"> Keep the consultant specification list and PDFs</label>' +
+      '<div class="mfoot"><button class="btn" data-act="closemodal">Cancel</button><button class="btn pri" data-act="dupgo">Create copy</button></div>');
+  }
+  async function dupGo() {
+    var src = projects.filter(function (x) { return x.id === dup.id; })[0]; if (!src) return;
+    var name = ($('#dupname').value || '').trim(); if (!name) return toast('Give the copy a name.');
+    var mode = (document.querySelector('[name=dupmode]:checked') || {}).value, np = { id: SS.uid(), created: Date.now(), sections: [], notes: '', name: name, number: ($('#dupnum').value || '').trim(), ptype: src.ptype || '', architect: src.architect || settings.architect || 'ai3, Inc.', phase: '' };
+    if ($('#dupcode').checked) { np.code = src.code || ''; np.contractForm = src.contractForm || ''; }
+    if ($('#dupteam').checked) ['interior', 'structural', 'cm', 'mep', 'civil', 'landscape'].forEach(function (k) { np[k] = src[k] || ''; });
+    if (mode === 'text') np.sections = clone(src.sections).map(function (s) { s.hist = []; s.status = 'draft'; return s; });
+    else addSections(np, src.sections.map(function (s) { return s.code; }));
+    if ($('#dupcons').checked && (src.consultants || []).length) np.consultants = await window.__consCopy(src.consultants);
+    projects.unshift(np); saveProjects(); closeModal(); ui.view = 'project'; ui.pid = np.id; ui.tab = 'overview'; ui.code = np.sections[0] && np.sections[0].code; render(); toast('Copied. Review the project information next.', 5000);
+  }
+
+  /* ---------- 2. find in project ---------- */
+  var fnd = { idx: [], q: '' };
+  function findOpen() {
+    var p = proj(); if (!p) return;
+    fnd.idx = p.sections.map(function (s) { return { kind: 'sec', code: s.code, title: s.title, on: s.on, text: s.body.trim() ? projTxt(p, s) : '' }; })
+      .concat((p.consultants || []).map(function (c) { return { kind: 'cons', code: '', title: c.title, text: [c.discipline, c.number, c.title].join(' ') }; }))
+      .concat((p.products || []).map(function (x) { return { kind: 'prod', code: x.code, title: x.manufacturer + ' ' + x.productName, text: [x.manufacturer, x.productName, x.code].join(' ') }; }));
+    modal('<h2>Find in this project</h2><div class="fld"><input type="text" id="findq" placeholder="Search every section’s text: a product, a standard, a phrase, “Section 09 260”…" autocomplete="off"></div><div id="findres" style="max-height:56vh;overflow:auto"><div class="small muted">Type to search ' + p.sections.length + ' sections.</div></div><div class="mfoot"><button class="btn" data-act="closemodal">Close</button></div>', true);
+    setTimeout(function () { var i = $('#findq'); if (i) i.focus(); }, 30);
+  }
+  function findRun() {
+    var q = (($('#findq') || {}).value || '').trim().toLowerCase(), el = $('#findres'); if (!el) return;
+    if (q.length < 2) { el.innerHTML = '<div class="small muted">Type at least two letters.</div>'; return; }
+    var words = q.split(/\s+/), out = [];
+    fnd.idx.forEach(function (x) {
+      var hay = (x.code + ' ' + x.title + ' ' + x.text).toLowerCase(); if (!words.every(function (w) { return hay.indexOf(w) >= 0; })) return;
+      var tl = x.text.toLowerCase(), at = tl.indexOf(words[0]), n = 0, i = -1; while ((i = tl.indexOf(words[0], i + 1)) >= 0 && n < 99) n++;
+      var sn = at >= 0 ? x.text.slice(Math.max(0, at - 60), at + 110).replace(/\s+/g, ' ') : '';
+      out.push({ x: x, n: n + (x.title.toLowerCase().indexOf(words[0]) >= 0 ? 5 : 0), sn: sn, off: x.at });
+    });
+    out.sort(function (a, b) { return b.n - a.n; });
+    var mark = function (t) { var h = esc(t); words.forEach(function (w) { h = h.replace(new RegExp('(' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig'), '<mark>$1</mark>'); }); return h; };
+    el.innerHTML = (out.length ? '<div class="small muted" style="margin-bottom:4px">' + out.length + ' result' + (out.length > 1 ? 's' : '') + '</div>' : '<div class="empty">Nothing found.</div>') + out.slice(0, 80).map(function (r) {
+      var x = r.x; return '<div class="sec" style="cursor:pointer;display:block;padding:8px 10px" data-act="' + (x.kind === 'sec' ? 'gotosec' : x.kind === 'cons' ? 'gotoconsult' : 'gotoprod') + '" data-code="' + esc(x.code) + '"><div><span class="c">' + esc(x.code || (x.kind === 'cons' ? 'Consultant' : '')) + '</span> <b>' + mark(x.title) + '</b>' + (x.kind === 'sec' && !x.on ? ' <span class="badge n">not included</span>' : '') + (r.n > 1 ? ' <span class="small muted">' + r.n + ' matches</span>' : '') + '</div>' + (r.sn ? '<div class="small muted" style="margin-top:2px">…' + mark(r.sn) + '…</div>' : '') + '</div>';
+    }).join('');
+  }
+  document.addEventListener('keydown', function (e) {
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K') && ui.view === 'project') { e.preventDefault(); findOpen(); }
+    else if (e.key === '/' && ui.view === 'project' && !/INPUT|TEXTAREA|SELECT/.test((e.target || {}).tagName || '') && !(e.target || {}).isContentEditable) { e.preventDefault(); findOpen(); }
+  });
+  document.addEventListener('input', function (e) { if (e.target && e.target.id === 'findq') { clearTimeout(findRun.t); findRun.t = setTimeout(findRun, 120); } });
+
+  /* ---------- 3. new-project wizard (keeps the #npf / #npstart / createproj ids) ---------- */
+  var wiz = { step: 1 };
+  function wf(k, l, ph) { var fm = settings.firm || {}, dv = k === 'code' ? fm.defCode : k === 'contractForm' ? fm.defContract : k === 'architect' ? (fm.name || settings.architect) : ''; return '<div class="fld"><label>' + l + '</label><input type="text" data-pf="' + k + '" value="' + esc(dv || '') + '" placeholder="' + esc(ph || '') + '"></div>'; }
+  function wizOpen() {
+    var ts = typeSets(); wiz = { step: 1 };
+    var opts = SS.PTYPES.map(function (t) { return '<option value="t:' + t + '">' + esc(SS.PTYPE_LABELS[t]) + ' set (' + (ts[t] || []).length + ' sections)</option>'; }).join('') + SS.STARTERS.map(function (s, i) { return '<option value="s:' + i + '">' + esc(s.name) + ' (' + s.codes.length + ' sections)</option>'; }).join('');
+    var phases = ['Schematic Design', 'Design Development', 'Permit Set', 'Construction Documents', 'Bid Set', 'Issued for Construction', 'Released for Construction'];
+    modal('<h2>New project <span class="small muted" id="wizstep"></span></h2><div id="npf">' +
+      '<div data-wiz="1"><div class="two">' + wf('name', 'Project name', 'River North Wellness Hotel') + wf('number', 'Project number') + '</div>' +
+      '<div class="two"><div class="fld"><label>Project type</label><select data-pf="ptype"><option value="">(not set)</option>' + SS.PTYPES.map(function (t) { return '<option value="' + t + '">' + esc(SS.PTYPE_LABELS[t]) + '</option>'; }).join('') + '</select></div>' + wf('owner', 'Owner') + '</div>' +
+      '<div class="two">' + wf('address', 'Street address') + wf('cityState', 'City, State', 'Fort Lauderdale, FL') + '</div>' +
+      '<div class="two"><div class="fld"><label>Issue phase</label><select data-pf="phase"><option value=""></option>' + phases.map(function (o) { return '<option>' + o + '</option>'; }).join('') + '</select></div>' + wf('issueDate', 'Issue date', 'December 12, 2026') + '</div></div>' +
+      '<div data-wiz="2" style="display:none"><div class="two">' + wf('code', 'Governing building code', 'Florida Building Code, Building, 8th Edition (2023)') + wf('contractForm', 'Contract form', 'AIA A201-2017') + '</div>' +
+      '<div class="two">' + wf('architect', 'Architect of record', settings.architect || 'ai3, Inc.') + wf('contractor', 'Contractor (if known)') + wf('interior', 'Interior designer') + wf('structural', 'Structural engineer') + wf('cm', 'Construction management') + wf('mep', 'MEP engineer') + wf('civil', 'Civil engineer') + wf('landscape', 'Landscape architect') + '</div></div></div>' +
+      '<div data-wiz="3" style="display:none"><div class="fld"><label>Starting set of sections</label><select id="npstart">' + opts + '</select></div><div class="small muted" id="wizsum"></div><div class="small muted" style="margin-top:8px">The cover page and table of contents are built from what you entered. You can change any of it later on the Project info tab. To start from a finished project instead, close this and use Duplicate on that project.</div></div>' +
+      '<div class="mfoot"><button class="btn" data-act="closemodal">Cancel</button><button class="btn" data-act="wizback" id="wizback" style="display:none">Back</button><button class="btn pri" data-act="wiznext" id="wiznext">Next</button><button class="btn pri" data-act="createproj" id="wizgo" style="display:none">Create project</button></div>');
+    wizShow();
+  }
+  function wizShow() {
+    [].forEach.call(document.querySelectorAll('[data-wiz]'), function (d) { d.style.display = +d.dataset.wiz === wiz.step ? '' : 'none'; });
+    var g = function (id, v) { var el = $(id); if (el) el.style.display = v ? '' : 'none'; };
+    g('#wizback', wiz.step > 1); g('#wiznext', wiz.step < 3); g('#wizgo', wiz.step === 3);
+    var st = $('#wizstep'); if (st) st.textContent = '• step ' + wiz.step + ' of 3: ' + ['The project', 'Team and contract', 'Sections'][wiz.step - 1];
+    if (wiz.step === 3) { var v = $('#npstart').value, n = v.indexOf('t:') === 0 ? (typeSets()[v.slice(2)] || []).length : SS.STARTERS[+v.slice(2)].codes.length, name = (document.querySelector('#npf [data-pf=name]') || {}).value || 'This project'; $('#wizsum').textContent = name + ' will start with ' + n + ' sections.'; }
+    var f = document.querySelector('[data-wiz="' + wiz.step + '"] input'); if (f) setTimeout(function () { f.focus(); }, 20);
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Enter' && wiz && document.getElementById('wizgo') && /INPUT/.test((e.target || {}).tagName || '') && e.target.type === 'text') { e.preventDefault(); var n = $('#wiznext'); if (n && n.style.display !== 'none') n.click(); else $('#wizgo').click(); } });
+
+  /* ---------- 4. overview ---------- */
+  window.viewOverview = function (p) {
+    var st = projStats(p), on = p.sections.filter(function (s) { return s.on; }), withText = on.filter(function (s) { return s.body.trim(); }),
+      cnt = { final: 0, review: 0, draft: 0 }; withText.forEach(function (s) { cnt[s.status === 'final' ? 'final' : s.status === 'review' ? 'review' : 'draft']++; });
+    var ck = issueCheck(p), pct = on.length ? Math.round(100 * st.fin / on.length) : 0, steps = [];
+    var add = function (txt, go, label, extra) { steps.push('<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line2)"><span style="flex:1">' + txt + '</span><button class="btn sm" data-act="ovgo" data-go="' + go + '"' + (extra || '') + '>' + label + '</button></div>'); };
+    if (!p.ptype) add('Pick a <b>project type</b> so Slate can suggest the right sections.', 'info', 'Project info');
+    var missInfo = ck.warn.filter(function (x) { return !x.code && /Project information missing/.test(x.text); })[0]; if (missInfo) add(esc(missInfo.text), 'info', 'Fill in');
+    var set = p.ptype ? (typeSets()[p.ptype] || []) : [], miss = set.filter(function (c) { return !p.sections.some(function (s) { return s.code === c; }); });
+    if (miss.length) add('<b>' + miss.length + '</b> section' + (miss.length > 1 ? 's' : '') + ' in the ' + esc(TYPE_OF(p)) + ' set ' + (miss.length > 1 ? 'are' : 'is') + ' not in this project: ' + esc(miss.slice(0, 5).join(', ')) + (miss.length > 5 ? '…' : ''), 'typeadd', 'Add them');
+    var empty = on.filter(function (s) { return !s.body.trim(); }); if (empty.length) add('<b>' + empty.length + '</b> included section' + (empty.length > 1 ? 's have' : ' has') + ' no text: ' + esc(empty.slice(0, 4).map(function (s) { return s.code; }).join(', ')) + (empty.length > 4 ? '…' : ''), 'sec:' + empty[0].code, 'Open first');
+    var open = ck.block.filter(function (x) { return x.code && x.text !== 'Included but has no text.' && !/Coordination conflict/.test(x.text); });
+    if (open.length) add('<b>' + open.length + '</b> section' + (open.length > 1 ? 's have' : ' has') + ' open questions or [brackets]: ' + esc(open.slice(0, 4).map(function (x) { return x.code; }).join(', ')) + (open.length > 4 ? '…' : ''), 'sec:' + open[0].code, 'Open first');
+    var conf = ck.block.filter(function (x) { return /Coordination conflict/.test(x.text); }); if (conf.length) add('<b>' + conf.length + '</b> coordination conflict' + (conf.length > 1 ? 's' : '') + ' still open.', 'coord', 'Coordination');
+    var newer = ck.warn.filter(function (x) { return /newer revision/.test(x.text); }); if (newer.length) add('<b>' + newer.length + '</b> section' + (newer.length > 1 ? 's have' : ' has') + ' a newer master revision.', 'sec:' + newer[0].code, 'Review');
+    var nf = withText.filter(function (s) { return s.status !== 'final'; }).length; if (!open.length && !empty.length && nf) add('<b>' + nf + '</b> section' + (nf > 1 ? 's are' : ' is') + ' not marked Final.', 'sec:' + withText.filter(function (s) { return s.status !== 'final'; })[0].code, 'Review');
+    var iss = p.issues || []; if (!iss.length) add('No issue has been frozen yet. Freeze one when you send the set out, so changes can be compared later.', 'export', 'Issue / export');
+    if (!steps.length) steps.push('<div class="row" style="padding:8px 0"><span style="flex:1"><b>Everything is complete.</b> Every included section has text, no open items, and is marked Final.</span><button class="btn pri" data-act="ovgo" data-go="export">Issue / export</button></div>');
+    var box = function (n, l, c) { return '<div style="flex:1;min-width:120px;border:1px solid var(--line2);border-radius:12px;padding:10px 12px"><div style="font-size:22px;font-weight:700"' + (c ? ' style="color:' + c + '"' : '') + '>' + n + '</div><div class="small muted">' + l + '</div></div>'; };
+    var last = iss.length ? iss[iss.length - 1] : null;
+    return '<div class="wrap"><div class="row"><div><h1 style="margin:0">' + esc(p.name || 'Untitled') + '</h1><div class="muted small">' + esc([p.number, TYPE_OF(p), p.phase, p.issueDate].filter(Boolean).join(' • ')) + '</div></div><div class="sp"></div><button class="btn" data-act="pdf" data-scope="all">Export PDF</button><button class="btn" data-act="docx" data-scope="all">Export Word</button></div>' +
+      '<div class="panel"><div class="row" style="gap:10px;flex-wrap:wrap">' + box(on.length, 'sections included') + box(cnt.final, 'final') + box(cnt.review, 'in review') + box(cnt.draft, 'draft') + box(empty.length, 'with no text') + box(st.open, 'open items') + '</div><div class="bar" style="margin-top:12px"><i style="width:' + pct + '%"></i></div><div class="small muted" style="margin-top:4px">' + pct + '% of included sections are marked Final</div></div>' +
+      '<div class="panel"><h2>What to do next</h2>' + steps.join('') + '</div>' +
+      '<div class="panel"><h2>At a glance</h2><div class="small" style="line-height:1.8">Last issue: <b>' + (last ? esc(last.name) + ' • ' + esc(last.date || '') : 'none yet') + '</b><br>Consultant specifications: <b>' + (p.consultants || []).length + '</b> • Products specified: <b>' + (p.products || []).length + '</b> • Modifications applied: <b>' + (p.mods || []).length + '</b><br>Submittal register: <b>' + p.sections.filter(function (s) { return s.on; }).length + '</b> included sections</div></div></div>';
+  };
+
+  /* ---------- handlers ---------- */
+  newProjectModal = wizOpen;
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (t && t.id === 'npstart' && wiz.step === 3) wizShow();
+  });
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act, p = proj();
+    if (act === 'gotosec' && el.closest('#findres')) closeModal();
+    if (act === 'wiznext') {
+      if (wiz.step === 1 && !(($('#npf [data-pf=name]') || {}).value || '').trim()) return toast('Give the project a name.');
+      wiz.step++; wizShow();
+    }
+    else if (act === 'wizback') { wiz.step--; wizShow(); }
+    else if (act === 'dupopen') { var src = projects.filter(function (x) { return x.id === (el.dataset.id || ui.pid); })[0]; if (!src) return; e.stopPropagation(); dup = { id: src.id, name: (src.name || 'Untitled') + ' (copy)' }; dupModal(); }
+    else if (act === 'dupgo') { dupGo().catch(function (err) { toast('⚠ ' + (err && err.message || err), 6000); }); }
+    else if (act === 'findopen') findOpen();
+    else if (act === 'gotoconsult') { closeModal(); ui.tab = 'consultants'; render(); }
+    else if (act === 'gotoprod') { closeModal(); ui.tab = 'products'; render(); }
+    else if (act === 'ovgo') {
+      var g = el.dataset.go; if (g.indexOf('sec:') === 0) { ui.tab = 'sections'; ui.code = g.slice(4); ui.editText = false; render(); }
+      else if (g === 'typeadd') { if (p && p.ptype) { var b = p.sections.length; addSections(p, typeSets()[p.ptype] || []); saveProjects(); render(); toast((p.sections.length - b) + ' sections added'); } }
+      else { ui.tab = g; render(); }
+    }
+    else if (act === 'histundo') { var s = p && p.sections.filter(function (x) { return x.code === ui.code; })[0]; if (!s) return; if (!(s.hist || []).length) return toast('Nothing earlier to go back to yet.'); histRestore(p, s, 0); toast('Put back the earlier text. Use History to switch again.', 4000); }
+    else if (act === 'histopen') { var s2 = p && p.sections.filter(function (x) { return x.code === ui.code; })[0]; if (s2) histModal(p, s2, -1); }
+    else if (act === 'histcmp') { var s3 = p.sections.filter(function (x) { return x.code === ui.code; })[0], i = +el.dataset.i; histModal(p, s3, ui.histOpen === i ? -1 : i); ui.histOpen = ui.histOpen === i ? -1 : i; }
+    else if (act === 'histrestore') { var s4 = p.sections.filter(function (x) { return x.code === ui.code; })[0]; closeModal(); histRestore(p, s4, +el.dataset.i); toast('Restored', 3000); }
+  });
+})();
+
+/* ================= WORKFLOW: comments, section navigation, export presets, guided issue, help, restore points, backup reminder, firm profile ================= */
+(function () {
+  var DAY = 86400000;
+  function agoT(t) { if (!t) return ''; var m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago'; }
+  function openCm(s) { return (s.cmts || []).filter(function (c) { return !c.done; }); }
+  function secOf(p) { return p.sections.filter(function (x) { return x.code === ui.code; })[0]; }
+
+  /* ---------- 6. comments & flags ---------- */
+  function cmtPanel(s) {
+    var l = s.cmts || [], n = openCm(s).length;
+    return '<div class="panel"><h2>Comments &amp; flags' + (n ? ' <span class="badge r">' + n + ' open</span>' : '') + '</h2>' +
+      (l.length ? l.map(function (c, i) { return '<div class="row" style="padding:5px 0;border-bottom:1px solid var(--line2)"><input type="checkbox" data-act="cmttog" data-i="' + i + '"' + (c.done ? ' checked' : '') + ' title="Mark resolved"><span style="flex:1;' + (c.done ? 'text-decoration:line-through;opacity:.6' : '') + '">' + esc(c.text) + '<span class="small muted"> — ' + esc(c.by || '') + ' ' + agoT(c.at) + '</span></span><button class="btn sm" data-act="cmtdel" data-i="' + i + '" title="Delete">×</button></div>'; }).join('') : '<div class="small muted">Nothing yet. Use this for things to check, questions for the owner or reminders to yourself. Comments never print in the manual.</div>') +
+      '<div class="row" style="margin-top:8px"><input type="text" id="cmtnew" placeholder="Add a comment or flag…" style="flex:1"><button class="btn sm pri" data-act="cmtadd">Add</button></div></div>';
+  }
+  var ic0 = issueCheck;
+  issueCheck = function (p) {
+    var r = ic0(p);
+    p.sections.forEach(function (s) { if (!s.on) return; var n = openCm(s).length; if (n) r.warn.push({ code: s.code, text: n + ' open comment' + (n > 1 ? 's' : '') + ': ' + openCm(s)[0].text.slice(0, 80) }); });
+    return r;
+  };
+
+  /* ---------- 7. section navigation ---------- */
+  var FILTERS = [['all', 'All'], ['todo', 'Not final'], ['empty', 'No text'], ['open', 'Open items'], ['cmt', 'Comments'], ['off', 'Excluded']];
+  function passes(p, s, r) {
+    var q = (ui.secQ || '').toLowerCase().trim(), f = ui.secF || 'all';
+    if (q && (s.code + ' ' + s.title).toLowerCase().indexOf(q) < 0) return false;
+    if (f === 'todo') return s.on && (!s.body.trim() || s.status !== 'final');
+    if (f === 'empty') return s.on && !s.body.trim();
+    if (f === 'open') return s.on && r && r.flags > 0;
+    if (f === 'cmt') return openCm(s).length > 0;
+    if (f === 'off') return !s.on;
+    return true;
+  }
+  listHtml = function (p) {
+    var h = '', last = '', n = 0, q = (ui.secQ || '').trim(), col = ui.collapsed = ui.collapsed || {};
+    p.sections.forEach(function (s) {
+      var r = s.body.trim() ? renderSec(p, s) : null; if (!passes(p, s, r)) return; n++;
+      var d = SS.divOf(s.code), shut = col[d] && !q;
+      if (d !== last) { h += '<div class="div" data-act="divtog" data-d="' + d + '" style="cursor:pointer" title="Click to fold">' + (shut ? '▸ ' : '▾ ') + 'Div ' + d + ' – ' + esc(SS.DIVISIONS[d] || '') + '</div>'; last = d; }
+      if (shut) return;
+      var badge;
+      if (!r) badge = '<span class="badge n">no text</span>';
+      else badge = s.status === 'final' ? '<span class="badge g">final</span>' : r.unresolved ? '<span class="badge">' + r.unresolved + ' open</span>' : s.status === 'review' ? '<span class="badge b">review</span>' : '<span class="badge g">✓</span>';
+      var nc = openCm(s).length;
+      h += '<div class="sec ' + (s.code === ui.code ? 'on ' : '') + (s.on ? '' : 'off') + '" data-act="selsec" data-code="' + s.code + '"><input type="checkbox" data-act="toggle" data-code="' + s.code + '" ' + (s.on ? 'checked' : '') + ' title="Include in manual"><span class="c">' + s.code + '</span><span class="t">' + esc(s.title) + '</span>' + (nc ? '<span class="badge r" title="Open comments">💬 ' + nc + '</span>' : '') + badge + '</div>';
+    });
+    return h || '<div class="empty small">' + (p.sections.length ? 'No sections match this filter.' : 'No sections yet. Use “+ Add” to pick from the catalog.') + '</div>';
+  };
+  function secBar() {
+    return '<div style="padding:6px 8px"><input type="text" data-secq placeholder="Filter sections…" value="' + esc(ui.secQ || '') + '" style="width:100%;padding:5px 8px;border:1px solid var(--border2);border-radius:6px"><div class="row" style="gap:4px;margin-top:5px;flex-wrap:wrap">' + FILTERS.map(function (f) { return '<button class="btn sm' + ((ui.secF || 'all') === f[0] ? ' pri' : '') + '" data-act="secf" data-f="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '</div></div>';
+  }
+  function stepSec(p, dir) {
+    var l = p.sections.filter(function (s) { return passes(p, s, s.body.trim() ? renderSec(p, s) : null); }), i = -1;
+    l.forEach(function (s, k) { if (s.code === ui.code) i = k; });
+    var t = l[i < 0 ? 0 : Math.max(0, Math.min(l.length - 1, i + dir))]; if (!t) return;
+    ui.tab = 'sections'; ui.code = t.code; ui.editText = false; render();
+    setTimeout(function () { var e = document.querySelector('#seclist .sec.on'); if (e && e.scrollIntoView) e.scrollIntoView({ block: 'nearest' }); }, 20);
+  }
+  var vs0 = viewSections;
+  viewSections = function (p) {
+    var h = vs0(p), s = secOf(p);
+    h = h.replace('<div id="seclist">', secBar() + '<div id="seclist">');
+    h = h.replace('<div class="sp"></div><select data-act="status"', '<button class="btn sm" data-act="secprev" title="Previous section (Alt+↑)">↑</button><button class="btn sm" data-act="secnext" title="Next section (Alt+↓)">↓</button><div class="sp"></div><select data-act="status"');
+    if (s) h = h.replace('<div class="panel"><div class="fld" style="margin:0"><label>Notes for this section', cmtPanel(s) + '<div class="panel"><div class="fld" style="margin:0"><label>Notes for this section');
+    return h;
+  };
+
+  /* ---------- 11. restore points ---------- */
+  function addRestore(p, name) {
+    p.snaps = p.snaps || [];
+    p.snaps.unshift({ id: SS.uid(), name: name, at: Date.now(), secs: clone(p.sections).map(function (s) { s.hist = []; return s; }) });
+    if (p.snaps.length > 5) p.snaps.length = 5;
+  }
+  function restorePanel(p) {
+    var l = p.snaps || [];
+    return '<div class="panel"><div class="row"><h2 style="margin:0">Restore points</h2><div class="sp"></div><button class="btn sm" data-act="rpsave">Save a restore point</button></div><div class="small muted" style="margin:6px 0">A full copy of every section as it is right now. Keeps the latest five. Restoring first saves the current state, so you can switch back.</div>' +
+      (l.length ? l.map(function (x) { return '<div class="row" style="padding:5px 0;border-top:1px solid var(--line2)"><span style="flex:1"><b>' + esc(x.name) + '</b> <span class="small muted">' + agoT(x.at) + ' • ' + x.secs.length + ' sections</span></span><button class="btn sm" data-act="rprestore" data-id="' + x.id + '">Restore</button><button class="btn sm" data-act="rpdel" data-id="' + x.id + '">×</button></div>'; }).join('') : '<div class="small muted">None saved yet.</div>') + '</div>';
+  }
+
+  /* ---------- 8. export presets ---------- */
+  var BUILTIN = [{ name: 'Review set (with notes to specifier)', notes: true, cover: true }, { name: 'Issue set (clean)', notes: false, cover: true }, { name: 'Pages only (no cover or contents)', notes: false, cover: false }];
+  function presets() { return BUILTIN.concat(settings.presets || []); }
+  function presetByName(n) { return presets().filter(function (x) { return x.name === n; })[0] || BUILTIN[1]; }
+  function presetOpts(sel) { return presets().map(function (x) { return '<option' + (x.name === sel ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join(''); }
+  function presetPanel() {
+    return '<div class="panel"><h2>Export presets</h2><div class="small muted">A preset sets whether notes to specifier and the cover and contents pages are included.</div><div class="row" style="margin-top:8px"><select id="presetsel">' + presetOpts(ui.preset || BUILTIN[1].name) + '</select><button class="btn pri" data-act="presetword">Word</button><button class="btn" data-act="presetpdf">PDF</button><button class="btn sm" data-act="presetsave">Save current options as a preset</button><button class="btn sm" data-act="presetdel">Delete preset</button></div><div class="row small" style="margin-top:8px"><label><input type="checkbox" data-act="optCover"' + (ui.cover !== false ? ' checked' : '') + '> include cover page and table of contents</label></div></div>';
+  }
+  function applyPreset(n) { var pr = presetByName(n); ui.notes = !!pr.notes; ui.cover = pr.cover !== false; }
+
+  /* ---------- 9. guided issue ---------- */
+  var gi = { step: 1 };
+  function giRead() {
+    var g = function (id) { var e = $(id); return e; };
+    if (g('#giforce')) gi.force = g('#giforce').checked;
+    if (g('#gi-name')) { gi.name = g('#gi-name').value.trim(); gi.date = g('#gi-date').value.trim(); gi.note = g('#gi-note').value.trim(); gi.set = g('#gi-set').checked; gi.preset = g('#gi-preset').value; }
+    if (g('#gi-word')) { gi.word = g('#gi-word').checked; gi.pdf = g('#gi-pdf').checked; }
+  }
+  function giModal() {
+    var p = proj(), c = issueCheck(p), b;
+    if (gi.step === 1) {
+      b = '<div class="small muted" style="margin-bottom:6px">Step 1 of 3 – Check the set</div>' +
+        (c.block.length ? c.block.slice(0, 8).map(function (x) { return '<div class="row" style="padding:3px 0"><a href="#" data-act="gigo" data-code="' + esc(x.code) + '" style="font-weight:600;width:64px;color:inherit">' + esc(x.code) + '</a><span style="flex:1">' + esc(x.text) + '</span></div>'; }).join('') + (c.block.length > 8 ? '<div class="small muted">…and ' + (c.block.length - 8) + ' more (see Issue / export)</div>' : '') + '<label class="small" style="display:block;margin-top:10px"><input type="checkbox" id="giforce"' + (gi.force ? ' checked' : '') + '> Issue anyway with these still open (they will print highlighted)</label>' : '<div><span class="badge g">Nothing blocking</span></div>') +
+        (c.warn.length ? '<div class="small muted" style="margin-top:8px">' + c.warn.length + ' item' + (c.warn.length > 1 ? 's' : '') + ' to review, such as statuses and comments. These do not block issuing.</div>' : '');
+    } else if (gi.step === 2) {
+      b = '<div class="small muted" style="margin-bottom:6px">Step 2 of 3 – Name this issue</div><div class="two"><div class="fld"><label>Issue name</label><input type="text" id="gi-name" value="' + esc(gi.name || p.phase || '') + '" placeholder="Permit Set"></div><div class="fld"><label>Issue date</label><input type="text" id="gi-date" value="' + esc(gi.date || todayStr()) + '"></div></div><div class="fld"><label>Note (what changed, who it went to)</label><input type="text" id="gi-note" value="' + esc(gi.note || '') + '"></div>' +
+        '<label class="small" style="display:block"><input type="checkbox" id="gi-set"' + (gi.set === false ? '' : ' checked') + '> Use this name and date on the cover page</label><div class="fld" style="margin-top:8px"><label>Output style</label><select id="gi-preset">' + presetOpts(gi.preset || BUILTIN[1].name) + '</select></div>';
+    } else {
+      b = '<div class="small muted" style="margin-bottom:6px">Step 3 of 3 – Freeze and export</div><div class="small" style="line-height:1.7">Issue: <b>' + esc(gi.name) + '</b> • ' + esc(gi.date) + '<br>Style: <b>' + esc(gi.preset) + '</b></div><div style="margin:10px 0"><label class="small" style="display:block"><input type="checkbox" id="gi-word"' + (gi.word === false ? '' : ' checked') + '> Word (.docx)</label><label class="small" style="display:block"><input type="checkbox" id="gi-pdf"' + (gi.pdf ? ' checked' : '') + '> PDF (opens the print dialog)</label></div><div class="small muted">Freezing records this issue so later changes can be compared, and saves a restore point. To add AIA documents or consultant sections to a PDF, use Merge on the Issue / export tab afterwards.</div>';
+    }
+    modal('<h2>Issue the manual</h2>' + b + '<div class="mfoot"><button class="btn" data-act="closemodal">Cancel</button>' + (gi.step > 1 ? '<button class="btn" data-act="giback">Back</button>' : '') + (gi.step < 3 ? '<button class="btn pri" data-act="ginext">Next</button>' : '<button class="btn pri" data-act="gigo2">Freeze &amp; export</button>') + '</div>', true);
+  }
+  function giFinish() {
+    giRead(); var p = proj(); if (!gi.word && !gi.pdf) { if (!confirm('No output is ticked. Freeze this issue without exporting?')) return; }
+    p.issues = p.issues || []; p.issues.push({ id: SS.uid(), name: gi.name, date: gi.date, note: gi.note || '', at: Date.now(), secs: snapshot(p) });
+    if (gi.set !== false) { p.phase = gi.name; p.issueDate = gi.date; }
+    addRestore(p, 'Issued: ' + gi.name); saveProjects(); closeModal(); applyPreset(gi.preset); render();
+    if (gi.word) exportDocx(p, 'all'); if (gi.pdf) exportPdf(p, 'all');
+    toast('Issued: ' + gi.name, 5000);
+  }
+
+  /* ---------- 10. help ---------- */
+  var HELP = {
+    overview: ['Overview', 'Your starting point. It lists what is left to do, with a button that takes you straight to each item. Start at the top and work down.'],
+    sections: ['Sections', 'Pick a section on the left. Answer its questions, or press ✨ Fill answers from notes. Use the filter and chips to find sections that are not final, have no text, or have open items. ↑ ↓ (or Alt+↑ / Alt+↓) move between sections. Undo and History bring back earlier text. Comments are for you and never print.'],
+    info: ['Project info & notes', 'Fill in the project name, owner, code and team. These fill in across every section and the cover page. Paste design notes at the bottom so AI can answer section questions for you.'],
+    sources: ['Sources', 'Drop finish schedules, hardware sets and drawings here. AI reads them to fill answers and check sections against the drawings.'],
+    products: ['Products', 'Upload a cut sheet and Slate writes a product spec section from it.'],
+    consultants: ['Consultants', 'Drop in specification PDFs from engineers. They are not sent to AI or sorted. They go into the manual and table of contents when you merge.'],
+    submittals: ['Submittals', 'A register built from your sections. Set a status for each line and download it as CSV for Excel.'],
+    coord: ['Coordination', 'Conflicts and gaps found when sections are checked against each other and against the drawings. Mark them done as you resolve them.'],
+    export: ['Issue / export', 'Run the pre-issue check, freeze an issue, apply modifications, merge AIA documents and consultant sections, and export. Use Start guided issue for the usual path.'],
+    projects: ['Projects', 'Each card is a project manual. Use + New project, or Duplicate on a finished project to start the next one from it.'],
+    library: ['Library', 'The ai3 master boilerplate. Edit a master once and projects can pull the update.'],
+    settings: ['Settings', 'API key, firm profile, project types, backup and cloud sync.']
+  };
+  function helpModal() {
+    var k = ui.view === 'project' ? ui.tab : ui.view, h = HELP[k] || HELP.projects;
+    modal('<h2>Help – ' + esc(h[0]) + '</h2><div style="line-height:1.6">' + esc(h[1]) + '</div><h3 style="margin-top:16px">Shortcuts</h3><div class="small" style="line-height:1.9"><b>Ctrl/Cmd+K</b> or <b>/</b> – find in this project<br><b>Alt+↑ / Alt+↓</b> – previous or next section<br><b>?</b> – this help</div><div class="mfoot"><button class="btn pri" data-act="helpfull">Open full Help</button><button class="btn" data-act="closemodal">Close</button></div>', true);
+  }
+  function tipsPanel() {
+    if (localStorage.getItem('ss1_tipsoff')) return '';
+    return '<div class="panel"><div class="row"><h2 style="margin:0">Getting started</h2><div class="sp"></div><button class="btn sm" data-act="helpopen">Help</button><button class="btn sm" data-act="tipsoff">Hide</button></div><ol class="small" style="line-height:1.8;margin:8px 0 0 18px"><li>Fill in <b>Project info</b> (name, owner, code, team).</li><li>On <b>Sections</b>, use ✨ Fill gaps for any section with no text.</li><li>Answer each section’s questions, or paste notes and press ✨ Fill from notes.</li><li>Clear the open items here, then use <b>Start guided issue</b>.</li></ol></div>';
+  }
+
+  /* ---------- 12. backup reminder ---------- */
+  var db0 = downloadBackup;
+  downloadBackup = function (n) { db0(n); try { localStorage.setItem('ss1_lastbackup', String(Date.now())); localStorage.removeItem('ss1_bksnooze'); } catch (e) {} };
+  try { if (!localStorage.getItem('ss1_lastbackup')) localStorage.setItem('ss1_lastbackup', String(Date.now())); } catch (e) {}
+  function bkBanner() {
+    if (!projects.length) return '';
+    var last = +localStorage.getItem('ss1_lastbackup') || 0, sn = +localStorage.getItem('ss1_bksnooze') || 0, lim = (cloud && cloud.user ? 30 : 7) * DAY;
+    if (Date.now() - last < lim || Date.now() < sn) return '';
+    var d = Math.round((Date.now() - last) / DAY);
+    return '<div class="panel" style="border-color:var(--amber,#d9a400)"><div class="row"><span style="flex:1"><b>Back up your work.</b> The last backup was ' + d + ' day' + (d === 1 ? '' : 's') + ' ago. A backup is one file with every project and your library.</span><button class="btn sm pri" data-act="backup">Download backup</button><button class="btn sm" data-act="bksnooze">Remind me in 3 days</button></div></div>';
+  }
+
+  /* ---------- 13. firm profile ---------- */
+  var FIRM = [['name', 'Firm name', 'ai3, Inc.'], ['address', 'Firm address (printed under the architect on the cover)', '1000 Peachtree St, Atlanta, GA'], ['phone', 'Phone', ''], ['web', 'Website', ''], ['reg', 'Registration or license note', ''], ['defCode', 'Default governing building code', ''], ['defContract', 'Default contract form', 'AIA A201-2017'], ['numLabel', 'Cover label for project numbers', 'ai3 Project No.'], ['userName', 'Your name (shown on comments)', '']];
+  function firmPanel() {
+    var f = settings.firm || {};
+    return '<div class="panel"><h2>Firm profile</h2><div class="small muted" style="margin-bottom:8px">Used to prefill new projects and to print the architect’s address on the cover page.</div><div class="two">' + FIRM.map(function (x) { return '<div class="fld"><label>' + x[1] + '</label><input type="text" id="fm-' + x[0] + '" value="' + esc(f[x[0]] || '') + '" placeholder="' + esc(x[2]) + '"></div>'; }).join('') + '</div><button class="btn" data-act="firmsave">Save firm profile</button></div>';
+  }
+  var vset0 = viewSettings;
+  viewSettings = function () {
+    var h = vset0(), last = +localStorage.getItem('ss1_lastbackup') || 0;
+    h = h.replace('<div class="panel"><h2>Cloud &amp; backup</h2>', firmPanel() + '<div class="panel"><h2>Cloud &amp; backup</h2><div class="small muted" style="margin-bottom:6px">Last backup downloaded: ' + (last ? agoT(last) : 'never') + '</div>');
+    return h;
+  };
+
+  /* ---------- wrappers for existing views ---------- */
+  var ov0 = window.viewOverview;
+  window.viewOverview = function (p) {
+    var h = ov0(p), cm = [], n = 0;
+    p.sections.forEach(function (s) { if (s.on && openCm(s).length) { n += openCm(s).length; cm.push(s); } });
+    h = h.replace('<div class="panel"><div class="row" style="gap:10px', bkBanner() + tipsPanel() + '<div class="panel"><div class="row" style="gap:10px');
+    if (n) h = h.replace('<div class="panel"><h2>What to do next</h2>', '<div class="panel"><h2>What to do next</h2><div class="row" style="padding:8px 0;border-bottom:1px solid var(--line2)"><span style="flex:1"><b>' + n + '</b> open comment' + (n > 1 ? 's' : '') + ' in ' + cm.length + ' section' + (cm.length > 1 ? 's' : '') + '.</span><button class="btn sm" data-act="ovgo" data-go="sec:' + cm[0].code + '">Open first</button></div>');
+    h = h.replace('<div class="panel"><h2>At a glance</h2>', '<div class="panel"><div class="row"><span style="flex:1"><b>Ready to send the set out?</b> The guided issue checks, names the issue, freezes it and exports.</span><button class="btn pri" data-act="giopen">Start guided issue</button></div></div>' + restorePanel(p) + '<div class="panel"><h2>At a glance</h2>');
+    return h;
+  };
+  var vp0 = viewProjects;
+  viewProjects = function () { return vp0().replace(/(<button class="btn pri" data-act="newproj">\+ New project<\/button><\/div>)/, '<button class="btn" data-act="helpopen">Help</button>$1').replace('<div class="grid">', bkBanner() + '<div class="grid">'); };
+  var ve0 = viewExport;
+  viewExport = function (p) { return ve0(p).replace('<div class="wrap">', '<div class="wrap"><div class="panel"><div class="row"><span style="flex:1"><b>Guided issue.</b> Check, name, freeze and export in three steps.</span><button class="btn pri" data-act="giopen">Start guided issue</button></div></div>' + presetPanel() + restorePanel(p)); };
+  var vpj0 = viewProject;
+  viewProject = function () { return vpj0().replace('<button class="btn sm" data-act="findopen"', '<button class="btn sm" data-act="helpopen" title="Help for this tab (?)">Help</button><button class="btn sm" data-act="findopen"'); };
+
+  /* ---------- events ---------- */
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act, p = proj(), s = p && secOf(p);
+    if (act === 'cmtadd') { var t = ($('#cmtnew').value || '').trim(); if (!t || !s) return; (s.cmts = s.cmts || []).push({ text: t, by: (settings.firm || {}).userName || '', at: Date.now(), done: false }); saveProjects(); render(); setTimeout(function () { var i = $('#cmtnew'); if (i) i.focus(); }, 30); }
+    else if (act === 'cmttog' && s) { var c = s.cmts[+el.dataset.i]; if (c) { c.done = !c.done; saveProjects(); render(); } }
+    else if (act === 'cmtdel' && s) { s.cmts.splice(+el.dataset.i, 1); saveProjects(); render(); }
+    else if (act === 'secf') { ui.secF = el.dataset.f; render(); }
+    else if (act === 'divtog') { var d = el.dataset.d; ui.collapsed = ui.collapsed || {}; ui.collapsed[d] = !ui.collapsed[d]; var l = $('#seclist'); if (l) l.innerHTML = listHtml(p); }
+    else if (act === 'secprev') stepSec(p, -1);
+    else if (act === 'secnext') stepSec(p, 1);
+    else if (act === 'rpsave') { var nm = prompt('Name this restore point', 'Restore point ' + new Date().toLocaleDateString()); if (nm === null) return; addRestore(p, (nm || '').trim() || 'Restore point'); saveProjects(); render(); toast('Restore point saved'); }
+    else if (act === 'rprestore') { var sn = (p.snaps || []).filter(function (x) { return x.id === el.dataset.id; })[0]; if (!sn || !confirm('Restore “' + sn.name + '”? Your current sections are saved as a restore point first.')) return; var secs = clone(sn.secs); addRestore(p, 'Before restoring “' + sn.name + '”'); p.sections = secs; saveProjects(); render(); toast('Restored', 4000); }
+    else if (act === 'rpdel') { p.snaps = (p.snaps || []).filter(function (x) { return x.id !== el.dataset.id; }); saveProjects(); render(); }
+    else if (act === 'presetword' || act === 'presetpdf') { ui.preset = $('#presetsel').value; applyPreset(ui.preset); render(); if (act === 'presetword') exportDocx(p, 'all'); else exportPdf(p, 'all'); }
+    else if (act === 'presetsave') { var pn = prompt('Name this preset', 'My preset'); if (!pn || !pn.trim()) return; pn = pn.trim(); if (BUILTIN.some(function (x) { return x.name === pn; })) return toast('That name is built in. Choose another.'); settings.presets = (settings.presets || []).filter(function (x) { return x.name !== pn; }); settings.presets.push({ name: pn, notes: !!ui.notes, cover: ui.cover !== false }); saveSettings(); ui.preset = pn; render(); toast('Preset saved'); }
+    else if (act === 'presetdel') { var pd = $('#presetsel').value; if (BUILTIN.some(function (x) { return x.name === pd; })) return toast('Built-in presets cannot be deleted.'); settings.presets = (settings.presets || []).filter(function (x) { return x.name !== pd; }); saveSettings(); ui.preset = ''; render(); }
+    else if (act === 'giopen') { gi = { step: 1 }; giModal(); }
+    else if (act === 'ginext') { giRead(); if (gi.step === 1 && issueCheck(p).block.length && !gi.force) return toast('Fix the open items, or tick “Issue anyway”.'); if (gi.step === 2 && !gi.name) return toast('Give the issue a name.'); gi.step++; giModal(); }
+    else if (act === 'giback') { giRead(); gi.step--; giModal(); }
+    else if (act === 'gigo') { e.preventDefault(); closeModal(); ui.tab = 'sections'; ui.code = el.dataset.code; render(); }
+    else if (act === 'gigo2') giFinish();
+    else if (act === 'helpopen') helpModal();
+    else if (act === 'tipsoff') { localStorage.setItem('ss1_tipsoff', '1'); render(); }
+    else if (act === 'bksnooze') { localStorage.setItem('ss1_bksnooze', String(Date.now() + 3 * DAY)); render(); }
+    else if (act === 'backup') setTimeout(render, 50);
+    else if (act === 'firmsave') { var f = {}; FIRM.forEach(function (x) { f[x[0]] = ($('#fm-' + x[0]).value || '').trim(); }); settings.firm = f; if (f.name) settings.architect = f.name; saveSettings(); toast('Firm profile saved'); }
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (!t) return;
+    if (t.dataset && t.dataset.act === 'optCover') ui.cover = t.checked;
+    if (t.id === 'presetsel') ui.preset = t.value;
+  });
+  document.addEventListener('input', function (e) {
+    var t = e.target; if (t && t.dataset && t.dataset.secq !== undefined) { ui.secQ = t.value; var p = proj(), l = $('#seclist'); if (p && l) l.innerHTML = listHtml(p); }
+  });
+  document.addEventListener('keydown', function (e) {
+    var tg = e.target || {}, typing = /INPUT|TEXTAREA|SELECT/.test(tg.tagName || '') || tg.isContentEditable;
+    if (e.key === 'Enter' && tg.id === 'cmtnew') { e.preventDefault(); var b = document.querySelector('[data-act=cmtadd]'); if (b) b.click(); }
+    else if (e.altKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && ui.view === 'project' && ui.tab === 'sections') { e.preventDefault(); stepSec(proj(), e.key === 'ArrowDown' ? 1 : -1); }
+    else if (e.key === '?' && !typing && !document.getElementById('modal')) { e.preventDefault(); helpModal(); }
+  });
+})();
+
+/* ================= HELP CENTER ================= */
+(function () {
+  var P = [
+    ['quick', 'First project in 10 minutes', '<p>This is the shortest path from nothing to an issued manual.</p><ol><li><b>Create the project.</b> On <b>Projects</b>, press <b>+ New project</b>. Step 1 asks for the name, number, type, owner, address and phase. Step 2 asks for the building code, contract form and the design team. Step 3 picks the starting set of sections. Choosing a project type (hotel, restaurant, office, residential) preselects the set that fits it.</li><li><b>Open Sections.</b> Every included section is listed on the left. Sections with no text show a “no text” badge.</li><li><b>Fill the gaps.</b> Press <b>✨ Fill gaps</b> to write boilerplate for every included section that has none. Slate uses the ai3 master text from the library first and only asks AI to draft what the library lacks.</li><li><b>Answer the questions.</b> Click a section. Its project-specific questions are in the middle column. Answer them yourself, or paste design notes on <b>Project info &amp; notes</b> and press <b>✨ Apply notes &amp; uploads to all sections</b>.</li><li><b>Clear the open items.</b> Go to <b>Overview</b>. The “What to do next” list shows what is left, with a button for each item.</li><li><b>Issue it.</b> When Overview says everything is complete, press <b>Start guided issue</b>. It checks the set, names the issue, freezes it, and exports Word and/or PDF.</li></ol><p class="small muted">Tip: you do not need to finish every step before looking at the result. The preview on the right of the Sections tab shows the section as it will print.</p>'],
+    ['how', 'How Slate works', '<p>Slate keeps three layers apart so edits never collide.</p><ul><li><b>The master library</b> holds ai3’s standard text for each section. Editing a master changes future projects only.</li><li><b>Each project</b> holds its own copy of every section. Changing a project section never touches the library unless you press <b>Save to library as ai3 standard</b>.</li><li><b>Answers</b> are the project-specific facts (board thickness, manufacturer, locations). The section text uses them as <code>{{variables}}</code>, and some paragraphs appear only when an answer calls for them.</li></ul><h3>What the marks mean</h3><ul><li><b>Yellow highlight on screen and in exports</b>: an unanswered question or anything left in [square brackets]. Nothing leaves the building unmarked.</li><li><b>Status</b> on each section: Draft, In review, Final. The Overview counts these.</li><li><b>Notes to specifier</b> appear only in review sets, never in an issue set.</li></ul><h3>Section text format</h3><p>Each line is one paragraph. <code># GENERAL</code> is a Part, <code>## SUMMARY</code> is an Article. <code>1:</code> to <code>4:</code> set the paragraph level (A., 1., a., 1)). <code>N:</code> is a note to specifier. <code>?(key=Value)</code> makes a line conditional on an answer. Part and Article numbers are added for you. The cheat sheet is on the section text editor in the library.</p>'],
+    ['projects', 'Projects, types and starting points', '<h3>Project types</h3><p>Hotel, restaurant, office and residential projects need different sections. Each type has its own section set, which you can change under <b>Settings → Project types</b>. Slate can also learn a set from your past projects.</p><h3>New project</h3><p><b>+ New project</b> runs a three-step wizard. Everything can be changed later on <b>Project info &amp; notes</b>. Defaults for the building code, contract form and architect come from your <b>Firm profile</b> in Settings.</p><h3>Duplicate</h3><p>Use <b>Duplicate</b> on a project card or in the project header to start the next project from a finished one. You choose whether to copy the section text and answers as they are, or only the list of sections with fresh master text. The project number, owner, address, issue date, issue history and notes are never copied. You can also keep the building code, the design team and the consultant specifications.</p><h3>Reuse</h3><p>On <b>Sections</b>, <b>Reuse</b> copies chosen sections from another project, with or without their answers.</p><h3>Bulk import</h3><p>On <b>Reference projects</b>, <b>Bulk import</b> reads many past project manuals (PDF or Word) at once and files each into your reference archive, tagged by project type. Slate then uses them when it drafts new sections. Files that are already in the archive are skipped.</p>'],
+    ['sections', 'Working in the Sections tab', '<h3>The three columns</h3><p><b>Left:</b> the section list. <b>Middle:</b> the selected section’s status, tools, questions and notes. <b>Right:</b> a live preview of how the section prints.</p><h3>Finding your way</h3><ul><li>Type in the filter box to narrow the list by number or title.</li><li>The chips show sections that are <b>Not final</b>, have <b>No text</b>, have <b>Open items</b>, have <b>Comments</b>, or are <b>Excluded</b>.</li><li>Click a division heading to fold it.</li><li><b>↑ ↓</b> in the section header, or <b>Alt+↑ / Alt+↓</b>, move to the previous or next section in the filtered list.</li><li><b>Ctrl/Cmd+K</b> or <b>/</b> searches the text of every section, plus consultant specifications and products.</li></ul><h3>Adding and removing</h3><p>The checkbox next to a section includes it in the manual. <b>+ Add</b> opens the catalog of CSI sections. To change a section’s number, use <b>Renumber</b> in its header. References to it in other sections follow.</p><h3>Writing</h3><ul><li><b>✨ Generate boilerplate with AI</b> drafts a section that has no text.</li><li><b>✨ Fill answers from notes &amp; uploads</b> answers the section’s questions from your project notes and uploaded documents. AI-filled answers carry an AI badge so you can check them.</li><li><b>✨ AI review</b> reads the section and lists problems.</li><li><b>Edit section text</b> opens the raw text for direct editing.</li><li><b>Insert manufacturers</b> and <b>Build References</b> add those articles from what the section already cites.</li><li><b>Reference</b> shows how your past project manuals handled the same section.</li></ul><h3>Undo, history, comments</h3><p><b>↶ Undo</b> puts back the text from before the last change. <b>History</b> lists the last six versions, with a compare view and a Restore button. Slate saves a version before AI rewrites, library pulls, imports and larger edits. <b>Comments &amp; flags</b> are private notes for you and your team. They never print. They appear in the pre-issue check until you mark them resolved.</p><h3>Library updates</h3><p>When the master has a newer revision, the section shows <b>Library updated — pull latest</b> and <b>Review changes</b>, which shows exactly what would change.</p>'],
+    ['sources', 'Notes, uploads and AI', '<h3>API key</h3><p>AI features need an Anthropic API key. Paste it under <b>Settings → AI</b>. It is stored only in this browser. Nothing else is sent anywhere except the text AI needs for the task you started.</p><h3>Project notes</h3><p>On <b>Project info &amp; notes</b>, paste the design narrative, meeting notes or owner program. AI uses it to answer each section’s questions. It fills blanks only and marks what it filled.</p><h3>Sources tab</h3><p>Drop finish schedules, door hardware sets and drawings here. Slate reads them and extracts finishes, hardware sets, wall types, code information, a sheet index and notes that affect specs. Sections can then be checked against them: <b>✨ Check vs drawings &amp; finishes</b> lists conflicts and gaps, which show up on the Coordination tab.</p><h3>What AI will not do</h3><p>It does not overwrite your text silently. It fills blanks, drafts empty sections, or proposes changes that you accept. Consultant specifications and merged PDFs are never sent to AI.</p>'],
+    ['products', 'Writing a spec from a cut sheet', '<p>The <b>Products</b> tab turns a manufacturer cut sheet into a specification section.</p><ol><li>Drop the cut sheet (PDF or Word) onto the drop zone.</li><li>Slate shows <b>What the cut sheet says</b>: manufacturer, product, key properties, standards, options.</li><li>Choose the section number or let Slate suggest one.</li><li>It drafts the section using ai3’s section format, based only on the cut sheet. Anything it could not find is left in [brackets] for you to resolve.</li><li>Review the draft and apply it. <b>Undo</b> restores the previous state.</li></ol><p>The product is listed under <b>Products specified in this project</b>.</p>'],
+    ['mods', 'Modifications and addenda', '<p>Use a modification when an addendum, bulletin or change order replaces specification sections.</p><ol><li>On <b>Issue / export</b>, find <b>Modifications</b>. Upload the change document (Word or PDF).</li><li>Slate reads it and separates the sections it contains into <b>replaced</b> (a section already in the project) and <b>new</b>.</li><li>Press <b>Compare</b> on any row to see the old text against the new, line by line.</li><li>Tick the sections you want and press <b>Apply</b>. Whole sections are replaced and new sections are added.</li><li><b>Undo</b> on the same panel puts everything back exactly as it was.</li></ol><p>Modifications replace whole sections, not paragraphs. For issuing addenda to the team, freeze an issue first so <b>Compare issues</b> can list what changed.</p><h3>Import edits from Word</h3><p>If someone edited an exported Word file, <b>Import edits from Word</b> on the Issue / export tab reads their changes and lets you accept them section by section.</p>'],
+    ['consult', 'Consultant specs and merging documents', '<h3>Consultant specifications</h3><p>The <b>Consultants</b> tab holds specification PDFs from your engineers. Drop each file, choose its discipline and division, and give it a title and number. Slate does not send these to AI or sort them. They are added to the manual and the table of contents when you merge. Use the arrows to set the order.</p><h3>Merge documents into the PDF</h3><p>On <b>Issue / export</b>, <b>Merge documents into the PDF</b> builds the final combined PDF. It asks you what you are merging:</p><ul><li>the exported Slate manual (PDF)</li><li>licensed documents such as the AIA A201 General Conditions or the owner’s agreement</li><li>appendices or other PDFs</li><li>consultant specifications from the Consultants tab</li></ul><p>For each file you choose where it goes: before or after a section, at the front, or at the end. Slate adds bookmarks for everything it merges, keeps your originals untouched, and the table of contents shows the consultant specifications with their page counts.</p><p class="small muted">Why export the PDF first: merging works on the finished PDF so page numbers are final.</p>'],
+    ['subs', 'Submittals and coordination', '<h3>Submittals</h3><p>The register is built from the Submittals, Warranty, Mock-up and Closeout articles of every included section. It updates as the specs change. Set a status on each line (Not started to Closed). <b>Download CSV</b> opens in Excel; <b>Copy</b> puts the CSV text on the clipboard.</p><h3>Coordination</h3><p>Findings from checking sections against drawings and finishes, and against each other. Each has a severity: <b>conflict</b> (blocks issuing), <b>gap</b> (review) or note. Mark items done as you resolve them. They appear in the pre-issue check.</p>'],
+    ['issue', 'Issuing, presets and restore points', '<h3>Pre-issue check</h3><p>Lists what must be fixed before issuing (sections with no text, unanswered questions, brackets, coordination conflicts) and what to review (status not Final, newer library revisions, open comments, references to sections not in the project).</p><h3>Guided issue</h3><p><b>Start guided issue</b> on Overview or Issue / export walks through three steps: check the set, name the issue and date, then freeze and export Word and/or PDF. You can issue with open items if you tick <b>Issue anyway</b>; they print highlighted.</p><h3>Frozen issues</h3><p>Freezing records the exact text of every section. Later you can use <b>Compare issues</b> to see what changed between two issues, copy an addendum summary, or print it. Issue dates by section appear on the table of contents.</p><h3>Export presets</h3><p>A preset sets whether notes to specifier and the cover and contents pages print. Built in: <b>Review set</b>, <b>Issue set (clean)</b> and <b>Pages only</b>. Set the options you want, then <b>Save current options as a preset</b>. Presets are stored in this browser.</p><h3>Word and PDF</h3><p>Word files are complete and editable, with a cover page, table of contents, headers and footers. PDF uses your browser’s print dialog: choose <b>Save as PDF</b>, and turn off headers and footers in the print options.</p><h3>Restore points</h3><p>A restore point is a full copy of every section. Save one before a risky change. Slate keeps the latest five and saves one automatically each time you issue. Restoring first saves your current state.</p>'],
+    ['library', 'Master library and reference projects', '<h3>Master library</h3><p>Your standard text for each section. Every edit raises the revision so projects can pull updates. Statuses run Starter, AI draft, Reviewed, ai3 standard. Each master keeps its history, with compare and restore. <b>Import from manual</b> reads a finished manual and files its sections as masters.</p><h3>Reference projects</h3><p>A private archive of past manuals, searchable from any section with <b>Reference</b>. Import one at a time or in bulk, and tag each with a project type. Slate uses them to draft sections that match how ai3 writes.</p>'],
+    ['settings', 'Settings, firm profile and backup', '<h3>Firm profile</h3><p>Firm name, address, phone, website, registration note, default building code, default contract form, the cover label for project numbers, and your name for comments. New projects start with these, and the firm address prints under the architect on the cover page.</p><h3>Project types</h3><p>Edit the section set for each type, add a type, or let Slate learn a set from your reference projects.</p><h3>Cloud and backup</h3><p>Sign in to sync projects between computers. Sync saves the whole record each time, so the last save wins: do not edit the same project on two computers at once. <b>Download backup</b> saves one file with every project, your library, archive and settings. Slate reminds you after seven days without one (thirty if you are signed in). Consultant PDFs are stored on the computer where you added them and are not part of sync or backup, so keep your originals.</p>'],
+    ['faq', 'Shortcuts and troubleshooting', '<h3>Shortcuts</h3><p><b>Ctrl/Cmd+K</b> or <b>/</b> find in project • <b>Alt+↑ / Alt+↓</b> previous or next section • <b>?</b> help for this tab</p><h3>Common questions</h3><p><b>AI buttons say there is no key.</b> Paste your Anthropic API key in Settings and press Save.</p><p><b>A section shows yellow text in the export.</b> It has an unanswered question or a [bracketed] decision. Open the section and resolve it.</p><p><b>I changed the library but my project did not change.</b> Projects keep their own copy. Open the section and press <b>Library updated — pull latest</b>.</p><p><b>My PDF has browser headers and footers.</b> In the print dialog, open More settings and turn off Headers and footers.</p><p><b>I made a mistake.</b> Try ↶ Undo or History on the section. For larger changes use a restore point, or <b>Undo</b> on a modification.</p><p><b>My work is on another computer.</b> Sign in to sync on both, or move it with a backup file.</p>']
+  ];
+  var MAP = { overview: 'quick', sections: 'sections', info: 'projects', sources: 'sources', products: 'products', consultants: 'consult', submittals: 'subs', coord: 'subs', export: 'issue', projects: 'projects', library: 'library', archive: 'library', settings: 'settings' };
+  function plain(h) { return h.replace(/<[^>]+>/g, ' ').toLowerCase(); }
+  window.viewHelp = function () {
+    var q = (ui.hq || '').toLowerCase().trim(), words = q.split(/\s+/).filter(Boolean);
+    var list = P.filter(function (x) { var t = (x[1] + ' ' + plain(x[2])); return words.every(function (w) { return t.indexOf(w) >= 0; }); });
+    if (!ui.hp || !P.some(function (x) { return x[0] === ui.hp; })) ui.hp = 'quick';
+    var cur = P.filter(function (x) { return x[0] === ui.hp; })[0];
+    if (list.length && !list.some(function (x) { return x[0] === cur[0]; })) cur = list[0];
+    var nav = list.map(function (x) { return '<button class="ni' + (x[0] === cur[0] ? ' on' : '') + '" data-act="helppage" data-k="' + x[0] + '" style="display:block;width:100%;text-align:left;padding:8px 10px">' + x[1] + '</button>'; }).join('') || '<div class="small muted" style="padding:8px">No pages match.</div>';
+    return '<div class="wrap" style="max-width:1100px"><h1>Help</h1><div class="muted" style="margin-bottom:12px">How to use Slate Specs, from the first project to issuing the set.</div><div style="display:grid;grid-template-columns:260px 1fr;gap:16px"><div><input type="text" data-helpq placeholder="Search help…" value="' + esc(ui.hq || '') + '" style="width:100%;padding:7px 10px;border:1px solid var(--border2);border-radius:8px;margin-bottom:8px"><div class="panel" style="padding:4px" id="helpnav">' + nav + '</div></div><div class="panel" id="helpbody" style="line-height:1.6"><h2>' + cur[1] + '</h2>' + cur[2] + '</div></div></div>';
+  };
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act;
+    if (act === 'helppage') { ui.hp = el.dataset.k; render(); var b = $('#main'); if (b) b.scrollTop = 0; }
+    else if (act === 'helpfull') { closeModal(); ui.hp = MAP[ui.view === 'project' ? ui.tab : ui.view] || 'quick'; ui.hq = ''; ui.prevView = ui.view; ui.view = 'help'; render(); }
+  });
+  document.addEventListener('input', function (e) {
+    var t = e.target; if (t && t.dataset && t.dataset.helpq !== undefined) { ui.hq = t.value; var pos = t.selectionStart; render(); var i = document.querySelector('[data-helpq]'); if (i) { i.focus(); try { i.setSelectionRange(pos, pos); } catch (x) {} } }
+  });
+})();

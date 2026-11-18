@@ -30,13 +30,13 @@ with sync_playwright() as p:
     pg.goto(APP); pg.wait_for_timeout(2000)
     print('pill:',pg.inner_text('#syncpill'))
     for n in ('A','B'):
-        pg.click('[data-act=newproj]'); pg.fill('[data-pf=name]','Proj '+n); pg.select_option('#npstart',index=0); pg.click('[data-act=createproj]'); pg.wait_for_timeout(300)
+        pg.click('[data-act=newproj]'); pg.fill('[data-pf=name]','Proj '+n); pg.click('[data-act=wiznext]'); pg.click('[data-act=wiznext]'); pg.select_option('#npstart',value='s:0'); pg.click('[data-act=createproj]'); pg.wait_for_timeout(300); pg.click('[data-act=tab][data-t=sections]')
         pg.click('nav [data-act=nav][data-v=projects], .ni >> nth=0'); pg.wait_for_timeout(300)
     pg.wait_for_timeout(2500)
     print('keys:',sorted(store)); 
     # edit only A
     log.clear()
-    pg.click('[data-act=open] >> nth=0')
+    pg.click('[data-act=open] >> nth=0'); pg.click('[data-act=tab][data-t=sections]')
     pg.wait_for_timeout(300); pg.click('[data-act=tab][data-t=info]'); pg.wait_for_timeout(200)
     pg.fill('[data-pf=name]','Edited name'); pg.wait_for_timeout(300)
     pg.wait_for_timeout(2500); print('after edit uploads:',log)

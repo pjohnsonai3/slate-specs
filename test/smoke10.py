@@ -14,7 +14,7 @@ with sync_playwright() as p:
     pg.goto(APP); pg.wait_for_timeout(1200)
     if pg.locator('#gate').count(): pg.click('[data-act=offline]')
     pg.evaluate("localStorage.setItem('db_apikey_anthropic','sk-test')")
-    pg.click('[data-act=newproj]'); pg.fill('[data-pf=name]','Std Test'); pg.select_option('#npstart',index=1); pg.click('[data-act=createproj]'); pg.wait_for_timeout(400)
+    pg.click('[data-act=newproj]'); pg.fill('[data-pf=name]','Std Test'); pg.click('[data-act=wiznext]'); pg.click('[data-act=wiznext]'); pg.select_option('#npstart',value='s:1'); pg.click('[data-act=createproj]'); pg.wait_for_timeout(400); pg.click('[data-act=tab][data-t=sections]')
     pg.evaluate("""(()=>{const s=__SS_DEBUG.projects[0].sections.find(s=>s.code=='09 910');s.body='# GENERAL\\n## SUMMARY\\n1: Paint.\\n## QUALITY ASSURANCE\\n1: Comply with ASTM E84, ASTM D4060-14 and NFPA 101 and ASTM E648. Also UL 723.\\n# PRODUCTS\\n## MATERIALS\\n1: Paint.\\n# EXECUTION\\n## INSTALLATION\\n1: Apply.'})()""")
     pg.click('[data-act=tab][data-t=sections]'); pg.wait_for_timeout(300)
     pg.evaluate("document.querySelector('#seclist .sec[data-code=\"09 910\"] .t').click()"); pg.wait_for_timeout(300)
@@ -27,7 +27,7 @@ with sync_playwright() as p:
     print('std rows:', pg.locator('[data-stdf=title]').count()); pg.screenshot(path='s10_set.png')
     pg.fill('#stdorg','UL'); pg.fill('#stdno','723'); pg.fill('#stdtitle','Standard for Test for Surface Burning Characteristics of Building Materials'); pg.click('[data-act=stdadd]'); pg.wait_for_timeout(300)
     # manufacturers
-    pg.click('[data-act=nav][data-v=projects]'); pg.click('[data-act=open] >> nth=0'); pg.wait_for_timeout(300)
+    pg.click('[data-act=nav][data-v=projects]'); pg.click('[data-act=open] >> nth=0'); pg.wait_for_timeout(300); pg.click('[data-act=tab][data-t=sections]')
     pg.click('[data-act=tab][data-t=sources]'); pg.set_input_files('[data-upload=finish]',['smoke.docx']); pg.wait_for_timeout(2500)
     print('mfr panel:', 'Benjamin Moore' in pg.inner_text('.wrap'))
     pg.click('[data-act=tab][data-t=sections]'); pg.evaluate("document.querySelector('#seclist .sec[data-code=\"09 910\"] .t').click()"); pg.wait_for_timeout(300)

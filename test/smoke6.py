@@ -19,7 +19,7 @@ with sync_playwright() as p:
     pg.goto(APP); pg.wait_for_timeout(1200)
     if pg.locator('#gate').count(): pg.click('[data-act=offline]')
     pg.evaluate("localStorage.setItem('db_apikey_anthropic','sk-test')")
-    pg.click('[data-act=newproj]'); pg.fill('[data-pf=name]','DZ'); pg.select_option('#npstart',index=0); pg.click('[data-act=createproj]'); pg.wait_for_timeout(300)
+    pg.click('[data-act=newproj]'); pg.fill('[data-pf=name]','DZ'); pg.click('[data-act=wiznext]'); pg.click('[data-act=wiznext]'); pg.select_option('#npstart',value='s:0'); pg.click('[data-act=createproj]'); pg.wait_for_timeout(300); pg.click('[data-act=tab][data-t=sections]')
     pg.click('[data-act=tab][data-t=sources]')
     print('dropzones',pg.locator('[data-dz]').count())
     b64=base64.b64encode(open('smoke.docx','rb').read()).decode()

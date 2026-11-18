@@ -317,6 +317,11 @@
   window.addEventListener('drop', function (e) {
     e.preventDefault(); [].forEach.call(document.querySelectorAll('.dz.drag'), function (d) { d.classList.remove('drag'); });
     var z = e.target.closest && e.target.closest('[data-dz]'); if (!z) return;
+    if (z.dataset.dz === 'mg') { if (e.dataTransfer.files.length) mgAdd([].slice.call(e.dataTransfer.files)); return; }
+    if (z.dataset.dz === 'cons') { if (e.dataTransfer.files.length) consAdd([].slice.call(e.dataTransfer.files)); return; }
+    if (z.dataset.dz === 'prod') { if (e.dataTransfer.files.length) prodAdd([].slice.call(e.dataTransfer.files)); return; }
+    if (z.dataset.dz === 'mod') { if (e.dataTransfer.files.length) modAdd(e.dataTransfer.files[0]); return; }
+    if (z.dataset.dz === 'bulk') { var bi = document.getElementById('bulkfile'); if (bi && e.dataTransfer.files.length) { bulkAdd([].slice.call(e.dataTransfer.files)); } return; }
     if (z.dataset.dz === 'manual') { var inp = document.getElementById('impfile'); if (inp && e.dataTransfer.files.length) { inp.files = e.dataTransfer.files; inp.dispatchEvent(new Event('change', { bubbles: true })); } return; }
     startUpload(z.dataset.dz, [].slice.call(e.dataTransfer.files || []));
   });
@@ -357,10 +362,23 @@
     modal('<h2>Import a project manual</h2>' +
       '<div class="small" style="margin-bottom:8px"><label style="display:block;margin-bottom:4px"><input type="radio" name="impmode" value="ref" data-impmode' + (lib ? '' : ' checked') + '> <b>Reference project.</b> Keep the manual as written, searchable, and copy sections into any project.</label>' +
       '<label style="display:block"><input type="radio" name="impmode" value="lib" data-impmode' + (lib ? ' checked' : '') + '> <b>Master library.</b> Turn project details into blanks and add the sections as boilerplate.</label></div>' +
-      '<div id="impmeta" style="' + (lib ? 'display:none' : '') + '"><div class="two"><div class="fld"><label>Project name</label><input type="text" id="impname" value="' + esc(imp.meta.name || '') + '" placeholder="The Perlant"></div><div class="fld"><label>Project no. / date (optional)</label><input type="text" id="impnum" value="' + esc(imp.meta.number || '') + '" placeholder="e.g. 22-014 • March 2024"></div></div></div>' +
+      '<div id="impmeta" style="' + (lib ? 'display:none' : '') + '"><div class="two"><div class="fld"><label>Project name</label><input type="text" id="impname" value="' + esc(imp.meta.name || '') + '" placeholder="The Perlant"></div><div class="fld"><label>Project no. / date (optional)</label><input type="text" id="impnum" value="' + esc(imp.meta.number || '') + '" placeholder="e.g. 22-014 • March 2024"></div></div><div class="fld"><label>Project type</label><select id="imptype"><option value="">(not set)</option>' + SS.PTYPES.map(function (t) { return '<option value="' + t + '"' + (imp.meta.ptype === t ? ' selected' : '') + '>' + esc(SS.PTYPE_LABELS[t]) + '</option>'; }).join('') + '</select></div></div>' +
       '<div class="small muted" style="margin-bottom:10px">Upload the finished manual as a PDF or Word file. The AI splits it into sections. About one minute per ' + batchPages() + ' PDF pages, so a 400-page manual takes ~20 minutes. Leave this window open. Nothing is saved until you press the button below.</div>' +
       '<label class="dz" data-dz="manual"><span class="dzt">✨ Drop a project manual (PDF or Word) here</span><span class="dzs">or click to browse</span><input type="file" id="impfile" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-impfile="1" style="display:none"></label><div id="prog-manual" class="small" style="margin:10px 0;color:var(--accent-ink)"></div><div id="err-manual" class="small" style="display:none;color:#a33;margin:6px 0"></div><div id="implist"></div>' +
       '<div class="mfoot"><button class="btn" data-act="closemodal">Close</button><button class="btn pri" data-act="impapply" id="impapply" style="display:none"></button></div>', true);
+  }
+  async function extractManual(f, fn) {
+    var ext = (f.name.split('.').pop() || '').toLowerCase(), acc = {};
+    if (ext === 'docx') {
+      setProg('manual', 'Reading ' + f.name + '…');
+      var parts = chunkText(docxText(await readBuf(f)), 40000); acc.results = []; acc.skipped = [];
+      if (!parts.length || parts.join('').length < 50) throw new Error('No readable text found in that Word file.');
+      for (var i = 0; i < parts.length; i++) { setProg('manual', 'AI is reading part ' + (i + 1) + ' of ' + parts.length + ' of ' + f.name + '…'); acc.results.push(parseJson(await ai(textPrompt(fn) + '\n\nDOCUMENT TEXT:\n' + parts[i], 16000))); }
+    } else {
+      var pdf = await openPdf(await readBuf(f));
+      await readPdf('manual', f.name, pdf, fn, acc);
+    }
+    return { list: mergeManual(acc.results || []), skipped: acc.skipped || [] };
   }
   function impRender() {
     var el = $('#implist'); if (!el) return; var lib = imp.mode === 'lib';
@@ -372,28 +390,103 @@
   }
   document.addEventListener('change', function (e) {
     var t = e.target;
-    if (t.dataset && t.dataset.impmode !== undefined) { imp.meta = { name: ($('#impname') || {}).value || imp.meta.name, number: ($('#impnum') || {}).value || imp.meta.number }; var keep = imp.list, sk = imp.skipped; imp.mode = t.value; impModal(); imp.list = keep; imp.skipped = sk; impRender(); return; }
+    if (t.dataset && t.dataset.impmode !== undefined) { imp.meta = { name: ($('#impname') || {}).value || imp.meta.name, number: ($('#impnum') || {}).value || imp.meta.number, ptype: ($('#imptype') || {}).value || imp.meta.ptype }; var keep = imp.list, sk = imp.skipped; imp.mode = t.value; impModal(); imp.list = keep; imp.skipped = sk; impRender(); return; }
     if (!t.dataset || !t.dataset.impfile || !t.files.length) return;
     var f = t.files[0]; t.value = ''; imp.list = []; imp.skipped = []; impRender(); setErr('manual', '');
     if (!imp.meta.name) { imp.meta.name = f.name.replace(/\.[^.]+$/, '').replace(/[_\-]+/g, ' ').replace(/project manual/i, '').trim(); var ni = $('#impname'); if (ni && !ni.value) ni.value = imp.meta.name; }
-    var fn = imp.mode === 'lib' ? manualPrompt : refPrompt, ext = (f.name.split('.').pop() || '').toLowerCase();
+    var fn = imp.mode === 'lib' ? manualPrompt : refPrompt;
     withBusy('impmanual', null, async function () {
       try {
-        var acc = {};
-        if (ext === 'docx') {
-          setProg('manual', 'Reading ' + f.name + '…');
-          var parts = chunkText(docxText(await readBuf(f)), 40000); acc.results = []; acc.skipped = [];
-          if (!parts.length || parts.join('').length < 50) throw new Error('No readable text found in that Word file.');
-          for (var i = 0; i < parts.length; i++) { setProg('manual', 'AI is reading part ' + (i + 1) + ' of ' + parts.length + '…'); acc.results.push(parseJson(await ai(textPrompt(fn) + '\n\nDOCUMENT TEXT:\n' + parts[i], 16000))); }
-        } else {
-          var pdf = await openPdf(await readBuf(f));
-          await readPdf('manual', f.name, pdf, fn, acc);
-        }
-        imp.list = mergeManual(acc.results || []); imp.skipped = acc.skipped || [];
+        var got = await extractManual(f, fn);
+        imp.list = got.list; imp.skipped = got.skipped;
         setProg('manual', imp.list.length ? 'Done: ' + imp.list.length + ' sections found. Review below.' : 'No specification sections were found in that file.');
         impRender();
       } catch (err) { setProg('manual', ''); aiNote = null; setErr('manual', String(err && err.message || err)); throw err; }
     })();
+  });
+
+  /* ---- bulk import: many manuals, each saved as its own reference project ---- */
+  var bulk = { rows: [], running: false, stop: false };
+  function guessType(n) {
+    n = n.toLowerCase();
+    if (/hotel|resort|inn\b|lodging|suites/.test(n)) return 'Hotel';
+    if (/restaurant|cafe|café|kitchen|dining|bistro|bar\b|food/.test(n)) return 'Restaurant';
+    if (/residen|apartment|multifamily|multi-family|condo|townhome|townhouse|housing/.test(n)) return 'Residential';
+    if (/office|tower|tenant|\bti\b|commercial/.test(n)) return 'Office';
+    return '';
+  }
+  function bulkAdd(files) {
+    files.forEach(function (f) {
+      var ext = (f.name.split('.').pop() || '').toLowerCase(); if (ext !== 'pdf' && ext !== 'docx') return;
+      if (bulk.rows.some(function (r) { return r.file.name === f.name && r.file.size === f.size; })) return;
+      var nm = f.name.replace(/\.[^.]+$/, '').replace(/[_\-]+/g, ' ').replace(/project manual/i, '').trim();
+      bulk.rows.push({ file: f, name: nm, ptype: guessType(f.name), status: 'queued', msg: '' });
+    });
+    bulkRender();
+  }
+  function bulkRows() {
+    var L = { queued: 'Waiting', reading: 'Reading…', done: 'Saved', skipped: 'Skipped', failed: 'Failed' };
+    return bulk.rows.map(function (r, i) {
+      var ed = !bulk.running && r.status === 'queued';
+      return '<tr><td class="small" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.file.name) + '">' + esc(r.file.name) + '</td>' +
+        '<td><input type="text" data-bname="' + i + '" value="' + esc(r.name) + '" style="width:100%;padding:4px 6px"' + (ed ? '' : ' disabled') + '></td>' +
+        '<td><select data-btype="' + i + '"' + (ed ? '' : ' disabled') + '><option value="">(not set)</option>' + SS.PTYPES.map(function (t) { return '<option value="' + t + '"' + (r.ptype === t ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></td>' +
+        '<td class="small" style="white-space:nowrap"><span class="badge ' + (r.status === 'done' ? 'g' : r.status === 'failed' ? '' : 'n') + '"' + (r.status === 'failed' ? ' style="color:#a33"' : '') + '>' + L[r.status] + '</span> ' + esc(r.msg) + '</td>' +
+        '<td>' + (ed ? '<button class="btn sm danger" data-act="bulkdel" data-i="' + i + '">✕</button>' : '') + '</td></tr>';
+    }).join('');
+  }
+  function bulkRender() {
+    var el = $('#bulkrows'); if (!el) return;
+    el.innerHTML = bulk.rows.length ? bulkRows() : '<tr><td colspan="5" class="muted">No files yet.</td></tr>';
+    var q = bulk.rows.filter(function (r) { return r.status === 'queued'; }).length, b = $('#bulkstart');
+    if (b) { b.disabled = bulk.running || !q; b.textContent = q ? 'Import ' + q + ' manual' + (q > 1 ? 's' : '') : 'Import'; }
+    var st = $('#bulkstop'); if (st) st.style.display = bulk.running ? '' : 'none';
+  }
+  function bulkModal() {
+    bulk.stop = false;
+    modal('<h2>Bulk import project manuals</h2><div class="small muted" style="margin-bottom:8px">Add many PDF or Word manuals at once. Each one is read by the AI and saved as its own reference project with every section it finds, with no review step. Manuals are read one after another, about one minute per ' + batchPages() + ' PDF pages, so leave this window open. A file that fails does not stop the rest. A manual whose name is already in Reference projects is skipped.</div>' +
+      '<label class="dz" data-dz="bulk"><span class="dzt">✨ Drop project manuals (PDF or Word) here</span><span class="dzs">or click to browse. Select as many as you like.</span><input type="file" id="bulkfile" multiple accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-bulkfile style="display:none"></label>' +
+      '<div class="row" style="margin:10px 0"><span class="small">Set the type for every file:</span><select data-bulkall><option value="">Choose…</option>' + SS.PTYPES.map(function (t) { return '<option value="' + t + '">' + esc(t) + '</option>'; }).join('') + '</select></div>' +
+      '<div style="max-height:40vh;overflow:auto;border:1px solid var(--border);border-radius:8px"><table class="tbl"><tr><th>File</th><th>Project name</th><th>Type</th><th>Status</th><th></th></tr><tbody id="bulkrows"></tbody></table></div>' +
+      '<div class="small" id="prog-manual" style="margin-top:8px;min-height:18px"></div><div class="small" id="err-manual" style="color:#a33;display:none"></div>' +
+      '<div class="mfoot"><button class="btn danger" id="bulkstop" data-act="bulkstop" style="display:none">Stop after this one</button><button class="btn" data-act="closemodal">Close</button><button class="btn pri" id="bulkstart" data-act="bulkstart">Import</button></div>', true);
+    bulkRender();
+  }
+  async function bulkRun() {
+    if (bulk.running) return; if (!localStorage.getItem('db_apikey_anthropic')) return toast('Add your Anthropic API key in Settings first.');
+    bulk.running = true; bulk.stop = false; bulkRender(); var made = 0, fail = 0;
+    for (var i = 0; i < bulk.rows.length; i++) {
+      var r = bulk.rows[i]; if (r.status !== 'queued') continue; if (bulk.stop) break;
+      r.name = (r.name || r.file.name).trim();
+      if (archive.some(function (a) { return a.name.toLowerCase() === r.name.toLowerCase(); })) { r.status = 'skipped'; r.msg = 'already in Reference projects'; bulkRender(); continue; }
+      r.status = 'reading'; r.msg = ''; bulkRender();
+      try {
+        var got = await extractManual(r.file, refPrompt);
+        if (!got.list.length) { r.status = 'failed'; r.msg = 'no sections found'; fail++; }
+        else {
+          archive.push({ id: SS.uid(), name: r.name, number: '', source: 'Imported manual', ptype: r.ptype || '', at: Date.now(), sections: got.list.map(function (x) { return { code: x.code, title: x.title, body: x.body }; }) });
+          saveArchive(); r.status = 'done'; r.msg = got.list.length + ' sections' + (got.skipped.length ? ', ' + got.skipped.length + ' page batches unreadable' : ''); made++;
+        }
+      } catch (err) { aiNote = null; r.status = 'failed'; r.msg = String(err && err.message || err).slice(0, 90); fail++; }
+      setProg('manual', ''); bulkRender();
+    }
+    bulk.running = false; aiNote = null; setProg('manual', ''); bulkRender();
+    toast(made + ' imported' + (fail ? ', ' + fail + ' failed' : '') + (bulk.stop ? ' (stopped)' : ''), 6000);
+    if (ui.view === 'archive' && !ui.archId) render();
+  }
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act;
+    if (act === 'bulkimport') { bulk = { rows: [], running: false, stop: false }; bulkModal(); }
+    else if (act === 'bulkstart') bulkRun();
+    else if (act === 'bulkstop') { bulk.stop = true; el.textContent = 'Stopping…'; }
+    else if (act === 'bulkdel') { bulk.rows.splice(+el.dataset.i, 1); bulkRender(); }
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (!t.dataset) return;
+    if (t.dataset.bulkfile !== undefined && t.files.length) { bulkAdd([].slice.call(t.files)); t.value = ''; }
+    else if (t.dataset.bname !== undefined) { var r = bulk.rows[+t.dataset.bname]; if (r) r.name = t.value; }
+    else if (t.dataset.btype !== undefined) { var r2 = bulk.rows[+t.dataset.btype]; if (r2) r2.ptype = t.value; }
+    else if (t.dataset.bulkall !== undefined && t.value) { bulk.rows.forEach(function (x) { if (x.status === 'queued') x.ptype = t.value; }); bulkRender(); }
   });
   document.addEventListener('click', function (e) {
     var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act;
@@ -403,7 +496,7 @@
       var picked = [].map.call(document.querySelectorAll('[data-impi]:checked'), function (c) { return imp.list[+c.dataset.impi]; });
       if (imp.mode === 'ref') {
         var nm = (($('#impname') || {}).value || '').trim(); if (!nm) return toast('Give the project a name.');
-        var rec = { id: SS.uid(), name: nm, number: (($('#impnum') || {}).value || '').trim(), source: 'Imported manual', at: Date.now(), sections: picked.map(function (x) { return { code: x.code, title: x.title, body: x.body }; }) };
+        var rec = { id: SS.uid(), name: nm, number: (($('#impnum') || {}).value || '').trim(), source: 'Imported manual', ptype: (($('#imptype') || {}).value || ''), at: Date.now(), sections: picked.map(function (x) { return { code: x.code, title: x.title, body: x.body }; }) };
         archive.push(rec); saveArchive(); closeModal(); ui.view = 'archive'; ui.archId = rec.id; render(); toast(picked.length + ' sections saved to Reference projects'); return;
       }
       var std = $('#impstd') && $('#impstd').checked, n = 0;

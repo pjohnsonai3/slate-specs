@@ -10,7 +10,7 @@ with sync_playwright() as p:
     pg.route('https://fonts.googleapis.com/**',lambda r:r.abort()); pg.route('https://*.supabase.co/**',lambda r:r.abort())
     pg.goto(APP); pg.wait_for_timeout(1200)
     if pg.locator('#gate').count(): pg.click('[data-act=offline]')
-    pg.click('[data-act=newproj]'); pg.fill('[data-pf=name]','Link Test'); pg.select_option('#npstart',index=1); pg.click('[data-act=createproj]'); pg.wait_for_timeout(400)
+    pg.click('[data-act=newproj]'); pg.fill('[data-pf=name]','Link Test'); pg.click('[data-act=wiznext]'); pg.click('[data-act=wiznext]'); pg.select_option('#npstart',value='s:1'); pg.click('[data-act=createproj]'); pg.wait_for_timeout(400); pg.click('[data-act=tab][data-t=sections]')
     pg.evaluate("""(()=>{const p=__SS_DEBUG.projects[0];const s=p.sections.find(s=>s.code=='09 910');s.body+='\\n# EXTRA\\n## COORD\\n1: Coordinate with Section 09 260 "Gypsum Wallboard Assemblies" and Section 01 100.';})()""")
     pg.click('[data-act=tab][data-t=export]')
     with pg.expect_download() as d: pg.click('[data-act=docx][data-scope=all]')

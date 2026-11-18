@@ -116,9 +116,9 @@
       if (loc) body.push(C(loc, { sz: 22 }));
       body.push(para({ sp: [700, 40], jc: 'center', runs: st ? run(st, { b: true, sz: 20 }) : '' }));
       body.push(C('PROJECT MANUAL', { b: true, sz: 20 }));
-      if (project.number) body.push(C('ai3 Project No. ' + project.number, { sz: 20 }));
+      if (project.number) body.push(C((project.numLabel || 'ai3 Project No.') + ' ' + project.number, { sz: 20 }));
       if (dt) body.push(C(dt, { sz: 20 }));
-      var parties = [['Owner', project.owner], ['Architect of Record', project.architect || 'ai3, Inc.'], ['Construction Management', project.cm || project.contractor], ['MEP Engineer', project.mep], ['Structural Engineer', project.structural], ['Interior Designer', project.interior]].filter(function (p) { return p[1]; });
+      var parties = [['Owner', project.owner], ['Architect of Record', project.archLine || project.architect || 'ai3, Inc.'], ['Construction Management', project.cm || project.contractor], ['MEP Engineer', project.mep], ['Structural Engineer', project.structural], ['Interior Designer', project.interior]].filter(function (p) { return p[1]; });
       body.push(para({ sp: [2400, 0], runs: '' }));
       var cell = function (p) { return '<w:tc><w:tcPr><w:tcW w:w="4800" w:type="dxa"/></w:tcPr>' + (p ? para({ sp: [160, 0], runs: run(p[0], { b: true, sz: 19 }) }) + para({ sp: [0, 0], runs: run(p[1], { sz: 19 }) }) : para({ runs: '' })) + '</w:tc>'; };
       var trs = '';
@@ -136,7 +136,7 @@
         g.rows.forEach(function (r) {
           var isSec = r.code && r.code !== '01 001';
           var pages = !r.code ? '' : isSec ? run(r.code + '-', { sz: 17 }) + fld('PAGEREF ' + bmName('e', r.code) + ' \\h', '1') : run('01 001-', { sz: 17 }) + fld('PAGEREF ' + bmName('e', '01 001') + ' \\h', '1');
-          rowsx += r.note ? tr(tc('', W[0]) + tc(r.note, W[1] + W[2] + W[3] + W[4], {}, 4)) : tr(tc('', W[0], { raw: link(r.code, run(r.code, { sz: 17 })) }) + tc('', W[1], { raw: link(r.code, run(r.title, { sz: 17 })) }) + tc('', W[2], { raw: pages }) + tc(r.issue || dt, W[3]) + tc(r.latest || dt, W[4]));
+          rowsx += r.note ? tr(tc('', W[0]) + tc(r.note, W[1] + W[2] + W[3] + W[4], {}, 4)) : r.cons ? tr(tc(r.num || '', W[0]) + tc(r.title, W[1]) + tc(r.pp || '', W[2]) + tc(r.issue || dt, W[3]) + tc(r.latest || dt, W[4])) : tr(tc('', W[0], { raw: link(r.code, run(r.code, { sz: 17 })) }) + tc('', W[1], { raw: link(r.code, run(r.title, { sz: 17 })) }) + tc('', W[2], { raw: pages }) + tc(r.issue || dt, W[3]) + tc(r.latest || dt, W[4]));
         });
         if (g.na) rowsx += tr(tc(g.na, 9600, {}, 5));
       });

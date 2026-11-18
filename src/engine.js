@@ -162,7 +162,7 @@
 
   /* ---------- render a project section ---------- */
   // sec: { code, title, body, questions[], answers{} }   project: info fields
-  SS.VAR_LABELS = { projectName: 'Project Name', projectNumber: 'Project Number', owner: 'Owner', architect: 'Architect', address: 'Project Address', cityState: 'City, State', issuePhase: 'Issue Phase', issueDate: 'Issue Date', contractForm: 'Contract Form', governingCode: 'Governing Code', structural: 'Structural Engineer', mep: 'MEP Engineer', civil: 'Civil Engineer', landscape: 'Landscape Architect', contractor: 'Contractor', interiorDesigner: 'Interior Designer', constructionManager: 'Construction Manager' };
+  SS.VAR_LABELS = { projectName: 'Project Name', projectNumber: 'Project Number', owner: 'Owner', architect: 'Architect', address: 'Project Address', cityState: 'City, State', issuePhase: 'Issue Phase', issueDate: 'Issue Date', contractForm: 'Contract Form', governingCode: 'Governing Code', structural: 'Structural Engineer', mep: 'MEP Engineer', civil: 'Civil Engineer', landscape: 'Landscape Architect', contractor: 'Contractor', interiorDesigner: 'Interior Designer', constructionManager: 'Construction Manager', projectType: 'Project Type' };
   SS.projectVars = function (p) {
     p = p || {};
     return {
@@ -170,7 +170,7 @@
       architect: p.architect || 'ai3, Inc.', address: p.address || '', cityState: p.cityState || '',
       issuePhase: p.phase || '', issueDate: p.issueDate || '', contractForm: p.contractForm || '',
       governingCode: p.code || '', structural: p.structural || '', mep: p.mep || '', civil: p.civil || '',
-      landscape: p.landscape || '', contractor: p.contractor || '', interiorDesigner: p.interior || '', constructionManager: p.cm || ''
+      landscape: p.landscape || '', contractor: p.contractor || '', interiorDesigner: p.interior || '', constructionManager: p.cm || '', projectType: p.ptype || ''
     };
   };
 
@@ -331,7 +331,8 @@
   /* shared by HTML + DOCX: [{head, rows:[{code,title,note}], na}] */
   SS.tocModel = function (project, rendered) {
     var by = {}; rendered.forEach(function (r) { var d = SS.divOf(r.code); (by[d] = by[d] || []).push(r); });
-    var extra = {}; Object.keys(by).forEach(function (d) { if (SS.TOC_DIVS.indexOf(d) < 0) extra[d] = 1; });
+    var cons = {}; (project.consultants || []).forEach(function (c) { if (c.div) (cons[c.div] = cons[c.div] || []).push(c); });
+    var extra = {}; Object.keys(by).concat(Object.keys(cons)).forEach(function (d) { if (SS.TOC_DIVS.indexOf(d) < 0) extra[d] = 1; });
     var divs = SS.TOC_DIVS.concat(Object.keys(extra)).sort();
     return divs.map(function (d) {
       var rows = [];
@@ -340,7 +341,8 @@
         if (project.contractForm) rows.push({ code: '', title: '', note: 'GENERAL CONDITIONS (' + String(project.contractForm).toUpperCase() + ')' });
       }
       (by[d] || []).forEach(function (r) { var sd = (project.secDates || {})[r.code] || {}; rows.push({ code: r.code, title: r.title.toUpperCase(), issue: sd.issue || project.issueDate || '', latest: sd.latest || project.issueDate || '' }); });
-      var empty = !(by[d] || []).length && d !== '01';
+      (cons[d] || []).forEach(function (c) { rows.push({ cons: true, num: c.number || '', title: (c.title || '').toUpperCase() + (c.discipline ? ' (' + c.discipline.toUpperCase() + ')' : ''), issue: c.issue || project.issueDate || '', latest: c.issue || project.issueDate || '', pp: c.pages ? c.pages + (c.pages === 1 ? ' page' : ' pages') : '' }); });
+      var empty = !(by[d] || []).length && !(cons[d] || []).length && d !== '01';
       return { d: d, head: 'DIVISION ' + parseInt(d, 10) + ' - ' + (SS.DIVISIONS[d] || '').toUpperCase(), rows: empty ? [] : rows, na: empty ? (SS.DIV_NA[d] || 'NOT APPLICABLE') : '' };
     });
   };
@@ -449,15 +451,15 @@
       var party = function (k, v) { return v ? '<div><b>' + k + '</b>' + E(v) + '</div>' : ''; };
       h.push('<div class="cover pgcover" style="height:9.9in"><div class="t"><h1>' + E(project.name || '') + '</h1><div class="a">' +
         (project.address ? 'at ' + E(project.address) + '<br>' : '') + (loc ? E(loc) : '') + '</div>' +
-        '<div class="s">' + (st ? '<b>' + E(st) + '</b>' : '') + '<b>PROJECT MANUAL</b>' + (project.number ? 'ai3 Project No. ' + E(project.number) + '<br>' : '') + E(dt) + '</div></div>' +
-        '<div class="p">' + party('Owner', project.owner) + party('Architect of Record', project.architect || 'ai3, Inc.') +
+        '<div class="s">' + (st ? '<b>' + E(st) + '</b>' : '') + '<b>PROJECT MANUAL</b>' + (project.number ? E(project.numLabel || 'ai3 Project No.') + ' ' + E(project.number) + '<br>' : '') + E(dt) + '</div></div>' +
+        '<div class="p">' + party('Owner', project.owner) + party('Architect of Record', project.archLine || project.architect || 'ai3, Inc.') +
         party('Construction Management', project.cm || project.contractor) + party('MEP Engineer', project.mep) +
         party('Structural Engineer', project.structural) + party('Interior Designer', project.interior) + '</div></div>');
       var t = ['<div class="tr h"><span class="a">Division</span><span class="b">Section Title</span><span class="c">Issue Date</span><span class="d">Latest Release</span><span class="e">Pages</span></div>'];
       SS.tocModel(project, rendered).forEach(function (g) {
         t.push('<div class="tdv">' + E(g.head) + '</div>');
         g.rows.forEach(function (r) {
-          t.push(r.note ? '<div class="tnt">' + E(r.note) + '</div>' :
+          t.push(r.note ? '<div class="tnt">' + E(r.note) + '</div>' : r.cons ? '<div class="tr"><span class="a">' + E(r.num) + '</span><span class="b">' + E(r.title) + '</span><span class="c">' + E(r.issue || dt) + '</span><span class="d">' + E(r.latest || dt) + '</span><span class="e">' + E(r.pp) + '</span></div>' :
             '<div class="tr"><span class="a"><a href="#s-' + E(r.code.replace(/\s/g, '')) + '">' + E(r.code) + '</a></span><span class="b"><a href="#s-' + E(r.code.replace(/\s/g, '')) + '">' + E(r.title) + '</a></span><span class="c">' + E(r.issue || dt) + '</span><span class="d">' + E(r.latest || dt) + '</span><span class="e pp" data-code="' + E(r.code) + '"></span></div>');
         });
         if (g.na) t.push('<div class="tna">' + E(g.na) + '</div>');

@@ -60,8 +60,8 @@
   /* ================= VIEWS ================= */
   function render() {
     var root = $('#app'); var _c = $('.three .col'), _st = _c ? _c.scrollTop : 0;
-    var titles = { projects: 'Projects', archive: 'Reference projects', library: 'Master library', settings: 'Settings' };
-    var nav = ['projects', 'archive', 'library', 'settings'].map(function (v) { return '<button data-act="nav" data-v="' + v + '" class="ni' + (ui.view === v || (v === 'projects' && ui.view === 'project') ? ' on' : '') + '"><span class="dot"></span>' + titles[v] + '</button>'; }).join('');
+    var titles = { projects: 'Projects', archive: 'Reference projects', library: 'Master library', settings: 'Settings', help: 'Help' };
+    var nav = ['projects', 'archive', 'library', 'settings', 'help'].map(function (v) { return '<button data-act="nav" data-v="' + v + '" class="ni' + (ui.view === v || (v === 'projects' && ui.view === 'project') ? ' on' : '') + '"><span class="dot"></span>' + titles[v] + '</button>'; }).join('');
     var pp = ui.view === 'project' ? proj() : null;
     var ttl = pp ? esc(pp.name || 'Untitled') + (pp.number ? ' <span class="sub">' + esc(pp.number) + '</span>' : '') : titles[ui.view] || '';
     root.innerHTML = '<div class="sb"><div class="logo"><img src="' + (window.__AI3_LOGO || '') + '" alt="ai3"><div class="logo-sub">Slate Specs</div></div><nav>' + nav + '</nav><div class="sb-foot"><div class="thm"><button data-act="theme" data-t="light">Light</button><button data-act="theme" data-t="dark">Dark</button></div><span id="syncpill" class="pill">' + esc(cloud.label) + '</span></div></div><div class="mainc"><div class="topbar"><h1>' + ttl + '</h1></div><div class="main" id="main"></div></div>';
@@ -71,6 +71,7 @@
     else if (ui.view === 'project') { m.style.overflow = 'hidden'; m.innerHTML = viewProject(); afterProject(); }
     else if (ui.view === 'library') m.innerHTML = viewLibrary();
     else if (ui.view === 'archive') m.innerHTML = viewArchive();
+    else if (ui.view === 'help') m.innerHTML = viewHelp();
     else m.innerHTML = viewSettings();
     if (ui.view !== 'project') m.style.overflow = 'auto';
     var _n = $('.three .col'); if (_n && _st) _n.scrollTop = _st;
@@ -79,7 +80,7 @@
   function viewProjects() {
     var cards = projects.map(function (p) {
       var st = projStats(p), pct = st.on ? Math.round(100 * st.fin / st.on) : 0;
-      return '<div class="card" data-act="open" data-id="' + p.id + '"><h3>' + esc(p.name || 'Untitled') + '</h3><div class="meta">' + esc([p.number, p.owner].filter(Boolean).join(' • ')) + '</div><div class="meta" style="margin-top:6px">' + st.on + ' sections • ' + st.open + ' open items' + (st.empty ? ' • ' + st.empty + ' need boilerplate' : '') + '</div><div class="bar"><i style="width:' + pct + '%"></i></div><div class="small muted" style="margin-top:4px">' + pct + '% marked final</div></div>';
+      return '<div class="card" data-act="open" data-id="' + p.id + '"><h3>' + esc(p.name || 'Untitled') + '</h3><div class="meta">' + esc([p.number, p.owner].filter(Boolean).join(' • ')) + '</div><div class="meta" style="margin-top:6px">' + st.on + ' sections • ' + st.open + ' open items' + (st.empty ? ' • ' + st.empty + ' need boilerplate' : '') + '</div><div class="bar"><i style="width:' + pct + '%"></i></div><div class="small muted" style="margin-top:4px">' + pct + '% marked final</div><div style="margin-top:6px"><button class="btn sm" data-act="dupopen" data-id="' + p.id + '">Duplicate</button></div></div>';
     }).join('');
     return '<div class="wrap"><div class="row"><div><h1>Projects</h1><div class="muted">Each project is a specification manual built from the ai3 master library.</div></div><div class="sp"></div><button class="btn pri" data-act="newproj">+ New project</button></div>' + (cards ? '<div class="grid">' + cards + '</div>' : '<div class="empty">No projects yet. Create one and pick a starter set of sections.</div>') + '</div>';
   }
@@ -87,24 +88,26 @@
   function projForm(p) {
     p = p || {};
     function f(k, l, ph) { return '<div class="fld"><label>' + l + '</label><input type="text" data-pf="' + k + '" value="' + esc(p[k] || '') + '" placeholder="' + esc(ph || '') + '"></div>'; }
-    return '<div class="two">' + f('name', 'Project name', 'River North Wellness Hotel') + f('number', 'Project number') + f('owner', 'Owner') + f('contractor', 'Contractor (if known)') + f('address', 'Street address') + f('cityState', 'City, State', 'Fort Lauderdale, FL') + '</div>' +
+    return '<div class="two">' + f('name', 'Project name', 'River North Wellness Hotel') + f('number', 'Project number') + '<div class="fld"><label>Project type</label><select data-pf="ptype"><option value="">(not set)</option>' + SS.PTYPES.map(function (t) { return '<option value="' + t + '"' + (p.ptype === t ? ' selected' : '') + '>' + esc(SS.PTYPE_LABELS[t]) + '</option>'; }).join('') + '</select></div>' + f('owner', 'Owner') + f('contractor', 'Contractor (if known)') + f('address', 'Street address') + f('cityState', 'City, State', 'Fort Lauderdale, FL') + '</div>' +
       '<div class="two"><div class="fld"><label>Issue phase</label><select data-pf="phase">' + ['', 'Schematic Design', 'Design Development', 'Permit Set', 'Construction Documents', 'Bid Set', 'Issued for Construction', 'Released for Construction'].concat(p.phase && ['Schematic Design', 'Design Development', 'Permit Set', 'Construction Documents', 'Bid Set', 'Issued for Construction', 'Released for Construction'].indexOf(p.phase) < 0 ? [p.phase] : []).map(function (o) { return '<option' + (p.phase === o ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select></div>' + f('issueDate', 'Issue date', 'December 12, 2026') + '</div>' +
       '<div class="two">' + f('code', 'Governing building code', 'Florida Building Code, Building, 8th Edition (2023)') + f('contractForm', 'Contract form', 'AIA A201-2017') + '</div>' +
       '<div class="two">' + f('architect', 'Architect of record', settings.architect || 'ai3, Inc.') + f('interior', 'Interior designer') + f('structural', 'Structural engineer') + f('cm', 'Construction management') + f('mep', 'MEP engineer') + f('civil', 'Civil engineer') + f('landscape', 'Landscape architect') + '</div>';
   }
   function readForm(root, p) { [].forEach.call(root.querySelectorAll('[data-pf]'), function (el) { p[el.dataset.pf] = el.value.trim(); }); }
 
+  function typeSets() { if (!settings.typeSets) { settings.typeSets = {}; SS.PTYPES.forEach(function (t) { settings.typeSets[t] = (SS.TYPE_SEED[t] || []).slice(); }); saveSettings(); } return settings.typeSets; }
   function newProjectModal() {
-    var opts = SS.STARTERS.map(function (s, i) { return '<option value="' + i + '">' + esc(s.name) + ' (' + s.codes.length + ' sections)</option>'; }).join('');
+    var ts = typeSets();
+    var opts = SS.PTYPES.map(function (t) { return '<option value="t:' + t + '">' + esc(SS.PTYPE_LABELS[t]) + ' set (' + (ts[t] || []).length + ' sections)</option>'; }).join('') + SS.STARTERS.map(function (s, i) { return '<option value="s:' + i + '">' + esc(s.name) + ' (' + s.codes.length + ' sections)</option>'; }).join('');
     modal('<h2>New project</h2><div id="npf">' + projForm({ architect: settings.architect }) + '</div><div class="fld"><label>Starter set of sections</label><select id="npstart">' + opts + '</select></div><div class="mfoot"><button class="btn" data-act="closemodal">Cancel</button><button class="btn pri" data-act="createproj">Create</button></div>', true);
   }
 
   /* ---- project page ---- */
   function viewProject() {
     var p = proj(); if (!p) return '<div class="empty">Project not found.</div>';
-    var tabs = [['sections', 'Sections'], ['info', 'Project info & notes'], ['sources', 'Sources'], ['submittals', 'Submittals'], ['coord', 'Coordination' + (openChecks(p).length ? ' (' + openChecks(p).length + ')' : '')], ['export', 'Issue / export']].map(function (t) { return '<button data-act="tab" data-t="' + t[0] + '" class="' + (ui.tab === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('');
-    var head = '<div class="ptop"><div class="tabs">' + tabs + '</div></div>';
-    var body = ui.tab === 'sections' ? viewSections(p) : ui.tab === 'info' ? viewInfo(p) : ui.tab === 'sources' ? viewSources(p) : ui.tab === 'coord' ? viewCoord(p) : ui.tab === 'submittals' ? viewSubmittals(p) : viewExport(p);
+    var tabs = [['overview', 'Overview'], ['sections', 'Sections'], ['info', 'Project info & notes'], ['sources', 'Sources'], ['products', 'Products'], ['consultants', 'Consultants' + ((p.consultants || []).length ? ' (' + p.consultants.length + ')' : '')], ['submittals', 'Submittals'], ['coord', 'Coordination' + (openChecks(p).length ? ' (' + openChecks(p).length + ')' : '')], ['export', 'Issue / export']].map(function (t) { return '<button data-act="tab" data-t="' + t[0] + '" class="' + (ui.tab === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('');
+    var head = '<div class="ptop"><div class="tabs">' + tabs + '</div><div class="sp"></div><button class="btn sm" data-act="findopen" title="Search every section (Ctrl/Cmd+K)">Find</button><button class="btn sm" data-act="dupopen" data-id="' + p.id + '">Duplicate</button></div>';
+    var body = ui.tab === 'overview' ? viewOverview(p) : ui.tab === 'sections' ? viewSections(p) : ui.tab === 'info' ? viewInfo(p) : ui.tab === 'sources' ? viewSources(p) : ui.tab === 'coord' ? viewCoord(p) : ui.tab === 'products' ? viewProducts(p) : ui.tab === 'consultants' ? viewConsultants(p) : ui.tab === 'submittals' ? viewSubmittals(p) : viewExport(p);
     return '<div style="display:flex;flex-direction:column;height:100%">' + head + '<div style="flex:1;min-height:0;overflow:' + (ui.tab === 'sections' ? 'hidden' : 'auto') + '">' + body + '</div></div>';
   }
 
@@ -142,7 +145,7 @@
       var head = '<div class="panel"><div class="row"><div><b style="font-size:15px">' + s.code + ' – ' + esc(s.title) + '</b></div><div class="sp"></div><select data-act="status" style="padding:4px 6px;border:1px solid var(--border2);border-radius:6px">' + [['draft', 'Draft'], ['review', 'In review'], ['final', 'Final']].map(function (o) { return '<option value="' + o[0] + '"' + (s.status === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>' +
         '<div class="row" style="margin-top:10px">' + (!s.body.trim() ? '<button class="btn ai" data-act="gen" data-code="' + s.code + '">✨ Generate boilerplate with AI</button>' : '<button class="btn ai" data-act="fillnotes">✨ Fill answers from notes &amp; uploads</button><button class="btn ai" data-act="review">✨ AI review</button>' + (hasSources(p) ? '<button class="btn ai" data-act="checksec">\u2728 Check vs drawings &amp; finishes</button>' : '')) +
         '<button class="btn sm" data-act="edittext">' + (ui.editText ? 'Hide text editor' : 'Edit section text') + '</button>' +
-        (stale ? '<button class="btn sm" data-act="pull">Library updated — pull latest</button><button class="btn sm" data-act="cmplib">Review changes</button>' : '') + '<button class="btn sm" data-act="refsec" title="Find this section in your past project manuals">Reference</button><button class="btn sm" data-act="buildrefs" title="Write the References article from the standards cited in this section">Build References</button><button class="btn sm" data-act="mfrins">Insert manufacturers</button><button class="btn sm" data-act="renum" title="Change the section number; references follow">Renumber</button>' + '</div></div>';
+        (stale ? '<button class="btn sm" data-act="pull">Library updated — pull latest</button><button class="btn sm" data-act="cmplib">Review changes</button>' : '') + '<button class="btn sm" data-act="histundo" title="Put back the text from before the last change">↶ Undo</button><button class="btn sm" data-act="histopen" title="Earlier versions of this section">History</button><button class="btn sm" data-act="refsec" title="Find this section in your past project manuals">Reference</button><button class="btn sm" data-act="buildrefs" title="Write the References article from the standards cited in this section">Build References</button><button class="btn sm" data-act="mfrins">Insert manufacturers</button><button class="btn sm" data-act="renum" title="Change the section number; references follow">Renumber</button>' + '</div></div>';
       var notes = '<div class="panel"><div class="fld" style="margin:0"><label>Notes for this section (used by AI fill)</label><textarea data-snote placeholder="e.g. Guest rooms get 5/8&quot; Type X, level 4. Lobby ceilings level 5.">' + esc(s.notes || '') + '</textarea></div></div>';
       var edit = ui.editText ? '<div class="panel"><h2>Section text</h2><div class="small muted" style="margin-bottom:6px">Project-only copy. Changes here do not touch the library unless you save to it.</div><textarea class="code" data-body>' + esc(s.body) + '</textarea><div class="row" style="margin-top:8px"><button class="btn sm" data-act="tolib">Save to library as ai3 standard</button><button class="btn sm" data-act="reset">Reset to library text</button><button class="btn sm" data-act="cmplib">Compare to library</button></div></div>' : '';
       mid = head + secChecksPanel(p, s) + (s.body.trim() ? '<div class="panel"><h2>Project-specific items</h2>' + qHtml(s) + '</div>' : '<div class="panel muted">This section has no text yet. Generate boilerplate with AI, or open the text editor and paste your own.</div>') + notes + edit;
@@ -151,7 +154,7 @@
   }
 
   function viewInfo(p) {
-    return '<div class="wrap"><div class="panel"><h2>Project information</h2><div class="muted small" style="margin-bottom:10px">These fill variables across every section (project name, owner, governing code, and so on).</div><div id="pinfo">' + projForm(p) + '</div></div>' +
+    return '<div class="wrap"><div class="panel"><h2>Project information</h2><div class="muted small" style="margin-bottom:10px">These fill variables across every section (project name, owner, governing code, and so on).</div><div id="pinfo">' + projForm(p) + '</div><div id="typebar">' + typeBar(p) + '</div></div>' +
       '<div class="panel"><h2>Project notes for AI</h2><div class="muted small" style="margin-bottom:6px">Paste the design narrative, meeting notes, owner program, or drawing notes. AI uses this to answer each section’s questions. It only fills blanks and marks what it filled so you can check it.</div><textarea data-pnotes style="width:100%;min-height:200px;padding:9px;border:1px solid var(--border2);border-radius:6px">' + esc(p.notes || '') + '</textarea><div class="row" style="margin-top:10px"><button class="btn ai" data-act="fillall">✨ Apply notes &amp; uploads to all sections</button><button class="btn ai" data-act="genall">✨ Generate missing boilerplate</button></div></div>' +
       '<div class="panel"><h2>Danger zone</h2><button class="btn danger" data-act="delproj">Delete this project</button></div></div>';
   }
@@ -282,14 +285,14 @@
   function fname(p, scope) { var base = (p.number ? p.number + ' ' : '') + (p.name || 'Project') + (scope === 'one' && ui.code ? ' - ' + ui.code : ' - Project Manual'); return base.replace(/[\\/:*?"<>|]/g, '').trim(); }
   function exportDocx(p, scope) {
     var r = renderedFor(p, scope, ui.notes); if (!r.length) return toast('Nothing to export — included sections have no text yet.');
-    var bytes = SS.buildDocx(expProject(p), r, { cover: scope !== 'one' }, window.fflate);
+    var bytes = SS.buildDocx(expProject(p), r, { cover: scope !== 'one' && ui.cover !== false }, window.fflate);
     var url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }));
     var a = document.createElement('a'); a.href = url; a.download = fname(p, scope) + '.docx'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
     toast('Word file ready');
   }
   function exportPdf(p, scope) {
     var r = renderedFor(p, scope, ui.notes); if (!r.length) return toast('Nothing to export — included sections have no text yet.');
-    var html = SS.manualHtml(expProject(p), r, { cover: scope !== 'one' });
+    var html = SS.manualHtml(expProject(p), r, { cover: scope !== 'one' && ui.cover !== false });
     var f = document.createElement('iframe'); f.style.cssText = 'position:fixed;left:-10000px;top:0;width:816px;height:1056px;border:0'; document.body.appendChild(f);
     f.onload = function () { var tries = 0; (function go() { var w = f.contentWindow; if (!w.__ready && tries++ < 100) return setTimeout(go, 100); try { w.focus(); w.print(); } catch (e) { toast('Print failed: ' + e.message); } setTimeout(function () { f.remove(); }, 60000); })(); };
     f.srcdoc = html;
@@ -302,7 +305,7 @@
   function hash(v) { return JSON.stringify(v); }
   function projKey(id) { return 'ss_proj_' + id; }
   /* one row per project (like STEVE's per-collection rows), so a save uploads only what changed and the row never holds every project */
-  function cloudCollections() { var o = { ss_library: library, ss_settings: { architect: settings.architect, standards: settings.standards || null }, ss_idx: projects.map(function (p) { return p.id; }) }; projects.forEach(function (p) { o[projKey(p.id)] = p; }); o.ss_archidx = archive.map(function (x) { return x.id; }); archive.forEach(function (x) { o['ss_arch_' + x.id] = x; }); return o; }
+  function cloudCollections() { var o = { ss_library: library, ss_settings: { architect: settings.architect, standards: settings.standards || null, typeSets: settings.typeSets || null, firm: settings.firm || null }, ss_idx: projects.map(function (p) { return p.id; }) }; projects.forEach(function (p) { o[projKey(p.id)] = p; }); o.ss_archidx = archive.map(function (x) { return x.id; }); archive.forEach(function (x) { o['ss_arch_' + x.id] = x; }); return o; }
   function cloudSchedule() { if (!cloud || !cloud.client || !cloud.user || !cloud.ready) return; clearTimeout(cloudT); setPill('Saving…', false); cloudT = setTimeout(cloudPush, 1500); }
   function setPill(l, ok) { cloud.label = l; cloud.ok = ok; var p = $('#syncpill'); if (p) { p.textContent = l; p.className = 'pill' + (ok ? ' ok' : ''); } }
   async function cloudPush() {
@@ -338,7 +341,7 @@
     if (Array.isArray(m.ss_archidx)) { archive = m.ss_archidx.map(function (id) { return m['ss_arch_' + id]; }).filter(Boolean); localStorage.setItem('ss1_archive', JSON.stringify(archive)); }
     DB.save && localStorage.setItem('ss1_projects', JSON.stringify(projects));
     if (m.ss_library) { Object.keys(SS.SEED).forEach(function (c) { if (!m.ss_library[c]) m.ss_library[c] = clone(SS.SEED[c]); }); library = m.ss_library; localStorage.setItem('ss1_library', JSON.stringify(library)); }
-    if (m.ss_settings && m.ss_settings.architect) { settings.architect = m.ss_settings.architect; if (Array.isArray(m.ss_settings.standards)) settings.standards = m.ss_settings.standards; localStorage.setItem('ss1_settings', JSON.stringify(settings)); }
+    if (m.ss_settings && m.ss_settings.architect) { settings.architect = m.ss_settings.architect; if (Array.isArray(m.ss_settings.standards)) settings.standards = m.ss_settings.standards; if (m.ss_settings.typeSets) settings.typeSets = m.ss_settings.typeSets; if (m.ss_settings.firm) settings.firm = m.ss_settings.firm; localStorage.setItem('ss1_settings', JSON.stringify(settings)); }
     var c = cloudCollections(); cloud.hash = {};
     Object.keys(m).forEach(function (k) { if (c[k] !== undefined && !(mig && k.indexOf('ss_proj_') === 0)) cloud.hash[k] = hash(c[k]); });
     cloud.ready = true; await cloudPush();
@@ -367,7 +370,7 @@
     cloud.user = r.data.user; $('#gate').remove(); setPill('Syncing…', false); await cloudPull(); render();
   }
 
-  function downloadBackup(name) { var blob = new Blob([JSON.stringify({ projects: projects, archive: archive, library: library, settings: { architect: settings.architect, model: settings.model } }, null, 1)], { type: 'application/json' }); var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name + '-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); a.remove(); }
+  function downloadBackup(name) { var blob = new Blob([JSON.stringify({ projects: projects, archive: archive, library: library, settings: { architect: settings.architect, model: settings.model, standards: settings.standards || null, typeSets: settings.typeSets || null, firm: settings.firm || null } }, null, 1)], { type: 'application/json' }); var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name + '-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); a.remove(); }
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden' && cloud.ready && cloud.client && cloud.user) { clearTimeout(cloudT); cloudPush(); } });
 
   /* ================= EVENTS ================= */
@@ -380,15 +383,15 @@
     if (act === 'toggle' || act === 'status' || act === 'notesToggle' || act === 'optNotes') return;   // handled on change
     if (act === 'nav') { ui.view = el.dataset.v; render(); }
     else if (act === 'theme') { try { localStorage.setItem('ai3_theme', el.dataset.t); } catch (x) {} document.documentElement.setAttribute('data-theme', el.dataset.t === 'dark' ? 'dark' : 'light'); }
-    else if (act === 'open') { ui.view = 'project'; ui.pid = el.dataset.id; ui.tab = 'sections'; var pp = proj(); ui.code = pp.sections[0] && pp.sections[0].code; render(); }
+    else if (act === 'open') { ui.view = 'project'; ui.pid = el.dataset.id; ui.tab = 'overview'; var pp = proj(); ui.code = pp.sections[0] && pp.sections[0].code; render(); }
     else if (act === 'newproj') newProjectModal();
     else if (act === 'closemodal') closeModal();
     else if (act === 'createproj') {
       var np = { id: SS.uid(), created: Date.now(), sections: [], notes: '' }; readForm($('#npf'), np);
       if (!np.name) return toast('Give the project a name.');
       np.architect = np.architect || settings.architect || 'ai3, Inc.';
-      addSections(np, SS.STARTERS[+$('#npstart').value].codes); projects.unshift(np); saveProjects(); closeModal();
-      ui.view = 'project'; ui.pid = np.id; ui.tab = 'sections'; ui.code = np.sections[0] && np.sections[0].code; render();
+      var sv = $('#npstart').value; addSections(np, sv.indexOf('t:') === 0 ? (typeSets()[sv.slice(2)] || []) : SS.STARTERS[+sv.slice(2)].codes); projects.unshift(np); saveProjects(); closeModal();
+      ui.view = 'project'; ui.pid = np.id; ui.tab = 'overview'; ui.code = np.sections[0] && np.sections[0].code; render();
     }
     else if (act === 'tab') { ui.tab = el.dataset.t; render(); }
     else if (act === 'selsec') { if (e.target.tagName === 'INPUT') return; ui.code = el.dataset.code; ui.editText = false; render(); }
@@ -446,7 +449,7 @@
   document.addEventListener('input', function (e) {
     var t = e.target, p = proj(), s = curSec();
     if (t.dataset.q && s) { s.answers[t.dataset.q] = t.value; var i = s.aiKeys.indexOf(t.dataset.q); if (i >= 0) { s.aiKeys.splice(i, 1); t.closest('.q').classList.remove('ai'); } saveSoon(); refreshPreview(); }
-    else if (t.dataset.body !== undefined && s) { s.body = t.value; saveSoon(); refreshPreview(); }
+    else if (t.dataset.body !== undefined && s) { s.body = t.value; ui.typing = true; saveSoon(); refreshPreview(); }
     else if (t.dataset.snote !== undefined && s) { s.notes = t.value; saveSoon(); }
     else if (t.dataset.pnotes !== undefined && p) { p.notes = t.value; saveSoon(); }
     else if (t.dataset.pf && p && ui.tab === 'info') { p[t.dataset.pf] = t.value.trim(); saveSoon(); }
@@ -459,7 +462,7 @@
     else if (t.dataset.act === 'status' && s) { s.status = t.value; saveProjects(); refreshPreview(); }
     else if (t.dataset.act === 'notesToggle' || t.dataset.act === 'optNotes') { ui.notes = t.checked; if (ui.tab === 'sections') refreshPreview(); }
     else if (t.dataset.restore !== undefined && t.files[0]) {
-      var r = new FileReader(); r.onload = function () { try { var d = JSON.parse(r.result); if (!d.projects || !d.library) throw new Error('Not a Slate Specs backup'); if (!confirm('Replace everything with this backup? A copy of what is there now will download first.')) return; downloadBackup('slate-specs-before-restore'); projects = d.projects; if (Array.isArray(d.archive)) { archive = d.archive; saveArchive(); } library = d.library; saveProjects(); saveLibrary(); toast('Restored'); render(); } catch (er) { toast('⚠ ' + er.message); } }; r.readAsText(t.files[0]);
+      var r = new FileReader(); r.onload = function () { try { var d = JSON.parse(r.result); if (!d.projects || !d.library) throw new Error('Not a Slate Specs backup'); if (!confirm('Replace everything with this backup? A copy of what is there now will download first.')) return; downloadBackup('slate-specs-before-restore'); projects = d.projects; if (Array.isArray(d.archive)) { archive = d.archive; saveArchive(); } library = d.library; if (d.settings) { if (Array.isArray(d.settings.standards)) settings.standards = d.settings.standards; if (d.settings.typeSets) settings.typeSets = d.settings.typeSets; if (d.settings.firm) settings.firm = d.settings.firm; saveSettings(); } saveProjects(); saveLibrary(); toast('Restored'); render(); } catch (er) { toast('⚠ ' + er.message); } }; r.readAsText(t.files[0]);
     }
   });
 

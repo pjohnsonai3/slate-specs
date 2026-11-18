@@ -32,7 +32,7 @@ with sync_playwright() as p:
     pg.goto(APP); pg.wait_for_timeout(1200)
     if pg.locator('#gate').count(): pg.click('[data-act=offline]')
     pg.evaluate("localStorage.setItem('db_apikey_anthropic','sk-test')")
-    pg.click('[data-act=newproj]'); pg.fill('[data-pf=name]','Upload Test'); pg.select_option('#npstart',index=0); pg.click('[data-act=createproj]'); pg.wait_for_timeout(300)
+    pg.click('[data-act=newproj]'); pg.fill('[data-pf=name]','Upload Test'); pg.click('[data-act=wiznext]'); pg.click('[data-act=wiznext]'); pg.select_option('#npstart',value='s:0'); pg.click('[data-act=createproj]'); pg.wait_for_timeout(300); pg.click('[data-act=tab][data-t=sections]')
     pg.click('[data-act=tab][data-t=sources]')
     pg.set_input_files('[data-upload=drawings]','drawings80.pdf'); pg.wait_for_selector('#modal',timeout=60000)
     print('info modal rows:', pg.locator('[data-infok]').count()); pg.click('[data-act=applyinfo]'); pg.wait_for_timeout(300)
