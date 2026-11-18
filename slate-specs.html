@@ -306,7 +306,7 @@ console.log('[ai3] Supabase library:', window.__SB_DIAG);
 
   /* ---------- render a project section ---------- */
   // sec: { code, title, body, questions[], answers{} }   project: info fields
-  SS.VAR_LABELS = { projectName: 'Project Name', projectNumber: 'Project Number', owner: 'Owner', architect: 'Architect', address: 'Project Address', cityState: 'City, State', issuePhase: 'Issue Phase', issueDate: 'Issue Date', contractForm: 'Contract Form', governingCode: 'Governing Code', structural: 'Structural Engineer', mep: 'MEP Engineer', civil: 'Civil Engineer', landscape: 'Landscape Architect', contractor: 'Contractor', interiorDesigner: 'Interior Designer', constructionManager: 'Construction Manager' };
+  SS.VAR_LABELS = { projectName: 'Project Name', projectNumber: 'Project Number', owner: 'Owner', architect: 'Architect', address: 'Project Address', cityState: 'City, State', issuePhase: 'Issue Phase', issueDate: 'Issue Date', contractForm: 'Contract Form', governingCode: 'Governing Code', structural: 'Structural Engineer', mep: 'MEP Engineer', civil: 'Civil Engineer', landscape: 'Landscape Architect', contractor: 'Contractor', interiorDesigner: 'Interior Designer', constructionManager: 'Construction Manager', projectType: 'Project Type' };
   SS.projectVars = function (p) {
     p = p || {};
     return {
@@ -314,7 +314,7 @@ console.log('[ai3] Supabase library:', window.__SB_DIAG);
       architect: p.architect || 'ai3, Inc.', address: p.address || '', cityState: p.cityState || '',
       issuePhase: p.phase || '', issueDate: p.issueDate || '', contractForm: p.contractForm || '',
       governingCode: p.code || '', structural: p.structural || '', mep: p.mep || '', civil: p.civil || '',
-      landscape: p.landscape || '', contractor: p.contractor || '', interiorDesigner: p.interior || '', constructionManager: p.cm || ''
+      landscape: p.landscape || '', contractor: p.contractor || '', interiorDesigner: p.interior || '', constructionManager: p.cm || '', projectType: p.ptype || ''
     };
   };
 
@@ -673,6 +673,11 @@ console.log('[ai3] Supabase library:', window.__SB_DIAG);
     { name: 'Ground-up commercial / mixed-use', codes: D1_CORE.concat(['01 210', '01 230', '01 310', '01 320', '01 500', '01 741', '01 790', '04 200', '06 100', '06 160', '06 402', '07 210', '07 250', '07 542', '07 620', '07 840', '07 920', '08 110', '08 211', '08 411', '08 511', '08 700', '08 800', '09 221', '09 260', '09 300', '09 511', '09 650', '09 911', '09 910', '10 140', '10 280', '10 441']) },
     { name: 'Division 01 only', codes: D1_CORE }
   ];
+
+  /* Project types. Each type starts from the nearest existing starter set; edit the sets in Settings or learn them from reference projects. */
+  SS.PTYPES = ['Hotel', 'Restaurant', 'Office', 'Residential'];
+  SS.PTYPE_LABELS = { Hotel: 'Hotel / hospitality', Restaurant: 'Restaurant / food service', Office: 'Office / commercial', Residential: 'Residential / multifamily' };
+  SS.TYPE_SEED = { Hotel: SS.STARTERS[1].codes.slice(), Restaurant: SS.STARTERS[1].codes.slice(), Office: SS.STARTERS[0].codes.slice(), Residential: SS.STARTERS[0].codes.slice() };
 
   function Q(key, label, type, o) { o = o || {}; return { key: key, label: label, type: type || 'text', options: o.options || [], default: o.def, help: o.help || '', group: o.group || '' }; }
   var YN = { options: ['Yes', 'No'] };
@@ -1475,15 +1480,17 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
   function projForm(p) {
     p = p || {};
     function f(k, l, ph) { return '<div class="fld"><label>' + l + '</label><input type="text" data-pf="' + k + '" value="' + esc(p[k] || '') + '" placeholder="' + esc(ph || '') + '"></div>'; }
-    return '<div class="two">' + f('name', 'Project name', 'River North Wellness Hotel') + f('number', 'Project number') + f('owner', 'Owner') + f('contractor', 'Contractor (if known)') + f('address', 'Street address') + f('cityState', 'City, State', 'Fort Lauderdale, FL') + '</div>' +
+    return '<div class="two">' + f('name', 'Project name', 'River North Wellness Hotel') + f('number', 'Project number') + '<div class="fld"><label>Project type</label><select data-pf="ptype"><option value="">(not set)</option>' + SS.PTYPES.map(function (t) { return '<option value="' + t + '"' + (p.ptype === t ? ' selected' : '') + '>' + esc(SS.PTYPE_LABELS[t]) + '</option>'; }).join('') + '</select></div>' + f('owner', 'Owner') + f('contractor', 'Contractor (if known)') + f('address', 'Street address') + f('cityState', 'City, State', 'Fort Lauderdale, FL') + '</div>' +
       '<div class="two"><div class="fld"><label>Issue phase</label><select data-pf="phase">' + ['', 'Schematic Design', 'Design Development', 'Permit Set', 'Construction Documents', 'Bid Set', 'Issued for Construction', 'Released for Construction'].concat(p.phase && ['Schematic Design', 'Design Development', 'Permit Set', 'Construction Documents', 'Bid Set', 'Issued for Construction', 'Released for Construction'].indexOf(p.phase) < 0 ? [p.phase] : []).map(function (o) { return '<option' + (p.phase === o ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select></div>' + f('issueDate', 'Issue date', 'December 12, 2026') + '</div>' +
       '<div class="two">' + f('code', 'Governing building code', 'Florida Building Code, Building, 8th Edition (2023)') + f('contractForm', 'Contract form', 'AIA A201-2017') + '</div>' +
       '<div class="two">' + f('architect', 'Architect of record', settings.architect || 'ai3, Inc.') + f('interior', 'Interior designer') + f('structural', 'Structural engineer') + f('cm', 'Construction management') + f('mep', 'MEP engineer') + f('civil', 'Civil engineer') + f('landscape', 'Landscape architect') + '</div>';
   }
   function readForm(root, p) { [].forEach.call(root.querySelectorAll('[data-pf]'), function (el) { p[el.dataset.pf] = el.value.trim(); }); }
 
+  function typeSets() { if (!settings.typeSets) { settings.typeSets = {}; SS.PTYPES.forEach(function (t) { settings.typeSets[t] = (SS.TYPE_SEED[t] || []).slice(); }); saveSettings(); } return settings.typeSets; }
   function newProjectModal() {
-    var opts = SS.STARTERS.map(function (s, i) { return '<option value="' + i + '">' + esc(s.name) + ' (' + s.codes.length + ' sections)</option>'; }).join('');
+    var ts = typeSets();
+    var opts = SS.PTYPES.map(function (t) { return '<option value="t:' + t + '">' + esc(SS.PTYPE_LABELS[t]) + ' set (' + (ts[t] || []).length + ' sections)</option>'; }).join('') + SS.STARTERS.map(function (s, i) { return '<option value="s:' + i + '">' + esc(s.name) + ' (' + s.codes.length + ' sections)</option>'; }).join('');
     modal('<h2>New project</h2><div id="npf">' + projForm({ architect: settings.architect }) + '</div><div class="fld"><label>Starter set of sections</label><select id="npstart">' + opts + '</select></div><div class="mfoot"><button class="btn" data-act="closemodal">Cancel</button><button class="btn pri" data-act="createproj">Create</button></div>', true);
   }
 
@@ -1539,7 +1546,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
   }
 
   function viewInfo(p) {
-    return '<div class="wrap"><div class="panel"><h2>Project information</h2><div class="muted small" style="margin-bottom:10px">These fill variables across every section (project name, owner, governing code, and so on).</div><div id="pinfo">' + projForm(p) + '</div></div>' +
+    return '<div class="wrap"><div class="panel"><h2>Project information</h2><div class="muted small" style="margin-bottom:10px">These fill variables across every section (project name, owner, governing code, and so on).</div><div id="pinfo">' + projForm(p) + '</div><div id="typebar">' + typeBar(p) + '</div></div>' +
       '<div class="panel"><h2>Project notes for AI</h2><div class="muted small" style="margin-bottom:6px">Paste the design narrative, meeting notes, owner program, or drawing notes. AI uses this to answer each section’s questions. It only fills blanks and marks what it filled so you can check it.</div><textarea data-pnotes style="width:100%;min-height:200px;padding:9px;border:1px solid var(--border2);border-radius:6px">' + esc(p.notes || '') + '</textarea><div class="row" style="margin-top:10px"><button class="btn ai" data-act="fillall">✨ Apply notes &amp; uploads to all sections</button><button class="btn ai" data-act="genall">✨ Generate missing boilerplate</button></div></div>' +
       '<div class="panel"><h2>Danger zone</h2><button class="btn danger" data-act="delproj">Delete this project</button></div></div>';
   }
@@ -1690,7 +1697,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
   function hash(v) { return JSON.stringify(v); }
   function projKey(id) { return 'ss_proj_' + id; }
   /* one row per project (like STEVE's per-collection rows), so a save uploads only what changed and the row never holds every project */
-  function cloudCollections() { var o = { ss_library: library, ss_settings: { architect: settings.architect, standards: settings.standards || null }, ss_idx: projects.map(function (p) { return p.id; }) }; projects.forEach(function (p) { o[projKey(p.id)] = p; }); o.ss_archidx = archive.map(function (x) { return x.id; }); archive.forEach(function (x) { o['ss_arch_' + x.id] = x; }); return o; }
+  function cloudCollections() { var o = { ss_library: library, ss_settings: { architect: settings.architect, standards: settings.standards || null, typeSets: settings.typeSets || null }, ss_idx: projects.map(function (p) { return p.id; }) }; projects.forEach(function (p) { o[projKey(p.id)] = p; }); o.ss_archidx = archive.map(function (x) { return x.id; }); archive.forEach(function (x) { o['ss_arch_' + x.id] = x; }); return o; }
   function cloudSchedule() { if (!cloud || !cloud.client || !cloud.user || !cloud.ready) return; clearTimeout(cloudT); setPill('Saving…', false); cloudT = setTimeout(cloudPush, 1500); }
   function setPill(l, ok) { cloud.label = l; cloud.ok = ok; var p = $('#syncpill'); if (p) { p.textContent = l; p.className = 'pill' + (ok ? ' ok' : ''); } }
   async function cloudPush() {
@@ -1726,7 +1733,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
     if (Array.isArray(m.ss_archidx)) { archive = m.ss_archidx.map(function (id) { return m['ss_arch_' + id]; }).filter(Boolean); localStorage.setItem('ss1_archive', JSON.stringify(archive)); }
     DB.save && localStorage.setItem('ss1_projects', JSON.stringify(projects));
     if (m.ss_library) { Object.keys(SS.SEED).forEach(function (c) { if (!m.ss_library[c]) m.ss_library[c] = clone(SS.SEED[c]); }); library = m.ss_library; localStorage.setItem('ss1_library', JSON.stringify(library)); }
-    if (m.ss_settings && m.ss_settings.architect) { settings.architect = m.ss_settings.architect; if (Array.isArray(m.ss_settings.standards)) settings.standards = m.ss_settings.standards; localStorage.setItem('ss1_settings', JSON.stringify(settings)); }
+    if (m.ss_settings && m.ss_settings.architect) { settings.architect = m.ss_settings.architect; if (Array.isArray(m.ss_settings.standards)) settings.standards = m.ss_settings.standards; if (m.ss_settings.typeSets) settings.typeSets = m.ss_settings.typeSets; localStorage.setItem('ss1_settings', JSON.stringify(settings)); }
     var c = cloudCollections(); cloud.hash = {};
     Object.keys(m).forEach(function (k) { if (c[k] !== undefined && !(mig && k.indexOf('ss_proj_') === 0)) cloud.hash[k] = hash(c[k]); });
     cloud.ready = true; await cloudPush();
@@ -1755,7 +1762,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
     cloud.user = r.data.user; $('#gate').remove(); setPill('Syncing…', false); await cloudPull(); render();
   }
 
-  function downloadBackup(name) { var blob = new Blob([JSON.stringify({ projects: projects, archive: archive, library: library, settings: { architect: settings.architect, model: settings.model } }, null, 1)], { type: 'application/json' }); var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name + '-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); a.remove(); }
+  function downloadBackup(name) { var blob = new Blob([JSON.stringify({ projects: projects, archive: archive, library: library, settings: { architect: settings.architect, model: settings.model, standards: settings.standards || null, typeSets: settings.typeSets || null } }, null, 1)], { type: 'application/json' }); var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name + '-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); a.remove(); }
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden' && cloud.ready && cloud.client && cloud.user) { clearTimeout(cloudT); cloudPush(); } });
 
   /* ================= EVENTS ================= */
@@ -1775,7 +1782,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
       var np = { id: SS.uid(), created: Date.now(), sections: [], notes: '' }; readForm($('#npf'), np);
       if (!np.name) return toast('Give the project a name.');
       np.architect = np.architect || settings.architect || 'ai3, Inc.';
-      addSections(np, SS.STARTERS[+$('#npstart').value].codes); projects.unshift(np); saveProjects(); closeModal();
+      var sv = $('#npstart').value; addSections(np, sv.indexOf('t:') === 0 ? (typeSets()[sv.slice(2)] || []) : SS.STARTERS[+sv.slice(2)].codes); projects.unshift(np); saveProjects(); closeModal();
       ui.view = 'project'; ui.pid = np.id; ui.tab = 'sections'; ui.code = np.sections[0] && np.sections[0].code; render();
     }
     else if (act === 'tab') { ui.tab = el.dataset.t; render(); }
@@ -1847,7 +1854,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
     else if (t.dataset.act === 'status' && s) { s.status = t.value; saveProjects(); refreshPreview(); }
     else if (t.dataset.act === 'notesToggle' || t.dataset.act === 'optNotes') { ui.notes = t.checked; if (ui.tab === 'sections') refreshPreview(); }
     else if (t.dataset.restore !== undefined && t.files[0]) {
-      var r = new FileReader(); r.onload = function () { try { var d = JSON.parse(r.result); if (!d.projects || !d.library) throw new Error('Not a Slate Specs backup'); if (!confirm('Replace everything with this backup? A copy of what is there now will download first.')) return; downloadBackup('slate-specs-before-restore'); projects = d.projects; if (Array.isArray(d.archive)) { archive = d.archive; saveArchive(); } library = d.library; saveProjects(); saveLibrary(); toast('Restored'); render(); } catch (er) { toast('⚠ ' + er.message); } }; r.readAsText(t.files[0]);
+      var r = new FileReader(); r.onload = function () { try { var d = JSON.parse(r.result); if (!d.projects || !d.library) throw new Error('Not a Slate Specs backup'); if (!confirm('Replace everything with this backup? A copy of what is there now will download first.')) return; downloadBackup('slate-specs-before-restore'); projects = d.projects; if (Array.isArray(d.archive)) { archive = d.archive; saveArchive(); } library = d.library; if (d.settings) { if (Array.isArray(d.settings.standards)) settings.standards = d.settings.standards; if (d.settings.typeSets) settings.typeSets = d.settings.typeSets; saveSettings(); } saveProjects(); saveLibrary(); toast('Restored'); render(); } catch (er) { toast('⚠ ' + er.message); } }; r.readAsText(t.files[0]);
     }
   });
 
@@ -2170,6 +2177,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
   window.addEventListener('drop', function (e) {
     e.preventDefault(); [].forEach.call(document.querySelectorAll('.dz.drag'), function (d) { d.classList.remove('drag'); });
     var z = e.target.closest && e.target.closest('[data-dz]'); if (!z) return;
+    if (z.dataset.dz === 'bulk') { var bi = document.getElementById('bulkfile'); if (bi && e.dataTransfer.files.length) { bulkAdd([].slice.call(e.dataTransfer.files)); } return; }
     if (z.dataset.dz === 'manual') { var inp = document.getElementById('impfile'); if (inp && e.dataTransfer.files.length) { inp.files = e.dataTransfer.files; inp.dispatchEvent(new Event('change', { bubbles: true })); } return; }
     startUpload(z.dataset.dz, [].slice.call(e.dataTransfer.files || []));
   });
@@ -2210,10 +2218,23 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
     modal('<h2>Import a project manual</h2>' +
       '<div class="small" style="margin-bottom:8px"><label style="display:block;margin-bottom:4px"><input type="radio" name="impmode" value="ref" data-impmode' + (lib ? '' : ' checked') + '> <b>Reference project.</b> Keep the manual as written, searchable, and copy sections into any project.</label>' +
       '<label style="display:block"><input type="radio" name="impmode" value="lib" data-impmode' + (lib ? ' checked' : '') + '> <b>Master library.</b> Turn project details into blanks and add the sections as boilerplate.</label></div>' +
-      '<div id="impmeta" style="' + (lib ? 'display:none' : '') + '"><div class="two"><div class="fld"><label>Project name</label><input type="text" id="impname" value="' + esc(imp.meta.name || '') + '" placeholder="The Perlant"></div><div class="fld"><label>Project no. / date (optional)</label><input type="text" id="impnum" value="' + esc(imp.meta.number || '') + '" placeholder="e.g. 22-014 • March 2024"></div></div></div>' +
+      '<div id="impmeta" style="' + (lib ? 'display:none' : '') + '"><div class="two"><div class="fld"><label>Project name</label><input type="text" id="impname" value="' + esc(imp.meta.name || '') + '" placeholder="The Perlant"></div><div class="fld"><label>Project no. / date (optional)</label><input type="text" id="impnum" value="' + esc(imp.meta.number || '') + '" placeholder="e.g. 22-014 • March 2024"></div></div><div class="fld"><label>Project type</label><select id="imptype"><option value="">(not set)</option>' + SS.PTYPES.map(function (t) { return '<option value="' + t + '"' + (imp.meta.ptype === t ? ' selected' : '') + '>' + esc(SS.PTYPE_LABELS[t]) + '</option>'; }).join('') + '</select></div></div>' +
       '<div class="small muted" style="margin-bottom:10px">Upload the finished manual as a PDF or Word file. The AI splits it into sections. About one minute per ' + batchPages() + ' PDF pages, so a 400-page manual takes ~20 minutes. Leave this window open. Nothing is saved until you press the button below.</div>' +
       '<label class="dz" data-dz="manual"><span class="dzt">✨ Drop a project manual (PDF or Word) here</span><span class="dzs">or click to browse</span><input type="file" id="impfile" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-impfile="1" style="display:none"></label><div id="prog-manual" class="small" style="margin:10px 0;color:var(--accent-ink)"></div><div id="err-manual" class="small" style="display:none;color:#a33;margin:6px 0"></div><div id="implist"></div>' +
       '<div class="mfoot"><button class="btn" data-act="closemodal">Close</button><button class="btn pri" data-act="impapply" id="impapply" style="display:none"></button></div>', true);
+  }
+  async function extractManual(f, fn) {
+    var ext = (f.name.split('.').pop() || '').toLowerCase(), acc = {};
+    if (ext === 'docx') {
+      setProg('manual', 'Reading ' + f.name + '…');
+      var parts = chunkText(docxText(await readBuf(f)), 40000); acc.results = []; acc.skipped = [];
+      if (!parts.length || parts.join('').length < 50) throw new Error('No readable text found in that Word file.');
+      for (var i = 0; i < parts.length; i++) { setProg('manual', 'AI is reading part ' + (i + 1) + ' of ' + parts.length + ' of ' + f.name + '…'); acc.results.push(parseJson(await ai(textPrompt(fn) + '\n\nDOCUMENT TEXT:\n' + parts[i], 16000))); }
+    } else {
+      var pdf = await openPdf(await readBuf(f));
+      await readPdf('manual', f.name, pdf, fn, acc);
+    }
+    return { list: mergeManual(acc.results || []), skipped: acc.skipped || [] };
   }
   function impRender() {
     var el = $('#implist'); if (!el) return; var lib = imp.mode === 'lib';
@@ -2225,28 +2246,103 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
   }
   document.addEventListener('change', function (e) {
     var t = e.target;
-    if (t.dataset && t.dataset.impmode !== undefined) { imp.meta = { name: ($('#impname') || {}).value || imp.meta.name, number: ($('#impnum') || {}).value || imp.meta.number }; var keep = imp.list, sk = imp.skipped; imp.mode = t.value; impModal(); imp.list = keep; imp.skipped = sk; impRender(); return; }
+    if (t.dataset && t.dataset.impmode !== undefined) { imp.meta = { name: ($('#impname') || {}).value || imp.meta.name, number: ($('#impnum') || {}).value || imp.meta.number, ptype: ($('#imptype') || {}).value || imp.meta.ptype }; var keep = imp.list, sk = imp.skipped; imp.mode = t.value; impModal(); imp.list = keep; imp.skipped = sk; impRender(); return; }
     if (!t.dataset || !t.dataset.impfile || !t.files.length) return;
     var f = t.files[0]; t.value = ''; imp.list = []; imp.skipped = []; impRender(); setErr('manual', '');
     if (!imp.meta.name) { imp.meta.name = f.name.replace(/\.[^.]+$/, '').replace(/[_\-]+/g, ' ').replace(/project manual/i, '').trim(); var ni = $('#impname'); if (ni && !ni.value) ni.value = imp.meta.name; }
-    var fn = imp.mode === 'lib' ? manualPrompt : refPrompt, ext = (f.name.split('.').pop() || '').toLowerCase();
+    var fn = imp.mode === 'lib' ? manualPrompt : refPrompt;
     withBusy('impmanual', null, async function () {
       try {
-        var acc = {};
-        if (ext === 'docx') {
-          setProg('manual', 'Reading ' + f.name + '…');
-          var parts = chunkText(docxText(await readBuf(f)), 40000); acc.results = []; acc.skipped = [];
-          if (!parts.length || parts.join('').length < 50) throw new Error('No readable text found in that Word file.');
-          for (var i = 0; i < parts.length; i++) { setProg('manual', 'AI is reading part ' + (i + 1) + ' of ' + parts.length + '…'); acc.results.push(parseJson(await ai(textPrompt(fn) + '\n\nDOCUMENT TEXT:\n' + parts[i], 16000))); }
-        } else {
-          var pdf = await openPdf(await readBuf(f));
-          await readPdf('manual', f.name, pdf, fn, acc);
-        }
-        imp.list = mergeManual(acc.results || []); imp.skipped = acc.skipped || [];
+        var got = await extractManual(f, fn);
+        imp.list = got.list; imp.skipped = got.skipped;
         setProg('manual', imp.list.length ? 'Done: ' + imp.list.length + ' sections found. Review below.' : 'No specification sections were found in that file.');
         impRender();
       } catch (err) { setProg('manual', ''); aiNote = null; setErr('manual', String(err && err.message || err)); throw err; }
     })();
+  });
+
+  /* ---- bulk import: many manuals, each saved as its own reference project ---- */
+  var bulk = { rows: [], running: false, stop: false };
+  function guessType(n) {
+    n = n.toLowerCase();
+    if (/hotel|resort|inn\b|lodging|suites/.test(n)) return 'Hotel';
+    if (/restaurant|cafe|café|kitchen|dining|bistro|bar\b|food/.test(n)) return 'Restaurant';
+    if (/residen|apartment|multifamily|multi-family|condo|townhome|townhouse|housing/.test(n)) return 'Residential';
+    if (/office|tower|tenant|\bti\b|commercial/.test(n)) return 'Office';
+    return '';
+  }
+  function bulkAdd(files) {
+    files.forEach(function (f) {
+      var ext = (f.name.split('.').pop() || '').toLowerCase(); if (ext !== 'pdf' && ext !== 'docx') return;
+      if (bulk.rows.some(function (r) { return r.file.name === f.name && r.file.size === f.size; })) return;
+      var nm = f.name.replace(/\.[^.]+$/, '').replace(/[_\-]+/g, ' ').replace(/project manual/i, '').trim();
+      bulk.rows.push({ file: f, name: nm, ptype: guessType(f.name), status: 'queued', msg: '' });
+    });
+    bulkRender();
+  }
+  function bulkRows() {
+    var L = { queued: 'Waiting', reading: 'Reading…', done: 'Saved', skipped: 'Skipped', failed: 'Failed' };
+    return bulk.rows.map(function (r, i) {
+      var ed = !bulk.running && r.status === 'queued';
+      return '<tr><td class="small" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.file.name) + '">' + esc(r.file.name) + '</td>' +
+        '<td><input type="text" data-bname="' + i + '" value="' + esc(r.name) + '" style="width:100%;padding:4px 6px"' + (ed ? '' : ' disabled') + '></td>' +
+        '<td><select data-btype="' + i + '"' + (ed ? '' : ' disabled') + '><option value="">(not set)</option>' + SS.PTYPES.map(function (t) { return '<option value="' + t + '"' + (r.ptype === t ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></td>' +
+        '<td class="small" style="white-space:nowrap"><span class="badge ' + (r.status === 'done' ? 'g' : r.status === 'failed' ? '' : 'n') + '"' + (r.status === 'failed' ? ' style="color:#a33"' : '') + '>' + L[r.status] + '</span> ' + esc(r.msg) + '</td>' +
+        '<td>' + (ed ? '<button class="btn sm danger" data-act="bulkdel" data-i="' + i + '">✕</button>' : '') + '</td></tr>';
+    }).join('');
+  }
+  function bulkRender() {
+    var el = $('#bulkrows'); if (!el) return;
+    el.innerHTML = bulk.rows.length ? bulkRows() : '<tr><td colspan="5" class="muted">No files yet.</td></tr>';
+    var q = bulk.rows.filter(function (r) { return r.status === 'queued'; }).length, b = $('#bulkstart');
+    if (b) { b.disabled = bulk.running || !q; b.textContent = q ? 'Import ' + q + ' manual' + (q > 1 ? 's' : '') : 'Import'; }
+    var st = $('#bulkstop'); if (st) st.style.display = bulk.running ? '' : 'none';
+  }
+  function bulkModal() {
+    bulk.stop = false;
+    modal('<h2>Bulk import project manuals</h2><div class="small muted" style="margin-bottom:8px">Add many PDF or Word manuals at once. Each one is read by the AI and saved as its own reference project with every section it finds, with no review step. Manuals are read one after another, about one minute per ' + batchPages() + ' PDF pages, so leave this window open. A file that fails does not stop the rest. A manual whose name is already in Reference projects is skipped.</div>' +
+      '<label class="dz" data-dz="bulk"><span class="dzt">✨ Drop project manuals (PDF or Word) here</span><span class="dzs">or click to browse. Select as many as you like.</span><input type="file" id="bulkfile" multiple accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-bulkfile style="display:none"></label>' +
+      '<div class="row" style="margin:10px 0"><span class="small">Set the type for every file:</span><select data-bulkall><option value="">Choose…</option>' + SS.PTYPES.map(function (t) { return '<option value="' + t + '">' + esc(t) + '</option>'; }).join('') + '</select></div>' +
+      '<div style="max-height:40vh;overflow:auto;border:1px solid var(--border);border-radius:8px"><table class="tbl"><tr><th>File</th><th>Project name</th><th>Type</th><th>Status</th><th></th></tr><tbody id="bulkrows"></tbody></table></div>' +
+      '<div class="small" id="prog-manual" style="margin-top:8px;min-height:18px"></div><div class="small" id="err-manual" style="color:#a33;display:none"></div>' +
+      '<div class="mfoot"><button class="btn danger" id="bulkstop" data-act="bulkstop" style="display:none">Stop after this one</button><button class="btn" data-act="closemodal">Close</button><button class="btn pri" id="bulkstart" data-act="bulkstart">Import</button></div>', true);
+    bulkRender();
+  }
+  async function bulkRun() {
+    if (bulk.running) return; if (!localStorage.getItem('db_apikey_anthropic')) return toast('Add your Anthropic API key in Settings first.');
+    bulk.running = true; bulk.stop = false; bulkRender(); var made = 0, fail = 0;
+    for (var i = 0; i < bulk.rows.length; i++) {
+      var r = bulk.rows[i]; if (r.status !== 'queued') continue; if (bulk.stop) break;
+      r.name = (r.name || r.file.name).trim();
+      if (archive.some(function (a) { return a.name.toLowerCase() === r.name.toLowerCase(); })) { r.status = 'skipped'; r.msg = 'already in Reference projects'; bulkRender(); continue; }
+      r.status = 'reading'; r.msg = ''; bulkRender();
+      try {
+        var got = await extractManual(r.file, refPrompt);
+        if (!got.list.length) { r.status = 'failed'; r.msg = 'no sections found'; fail++; }
+        else {
+          archive.push({ id: SS.uid(), name: r.name, number: '', source: 'Imported manual', ptype: r.ptype || '', at: Date.now(), sections: got.list.map(function (x) { return { code: x.code, title: x.title, body: x.body }; }) });
+          saveArchive(); r.status = 'done'; r.msg = got.list.length + ' sections' + (got.skipped.length ? ', ' + got.skipped.length + ' page batches unreadable' : ''); made++;
+        }
+      } catch (err) { aiNote = null; r.status = 'failed'; r.msg = String(err && err.message || err).slice(0, 90); fail++; }
+      setProg('manual', ''); bulkRender();
+    }
+    bulk.running = false; aiNote = null; setProg('manual', ''); bulkRender();
+    toast(made + ' imported' + (fail ? ', ' + fail + ' failed' : '') + (bulk.stop ? ' (stopped)' : ''), 6000);
+    if (ui.view === 'archive' && !ui.archId) render();
+  }
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act;
+    if (act === 'bulkimport') { bulk = { rows: [], running: false, stop: false }; bulkModal(); }
+    else if (act === 'bulkstart') bulkRun();
+    else if (act === 'bulkstop') { bulk.stop = true; el.textContent = 'Stopping…'; }
+    else if (act === 'bulkdel') { bulk.rows.splice(+el.dataset.i, 1); bulkRender(); }
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (!t.dataset) return;
+    if (t.dataset.bulkfile !== undefined && t.files.length) { bulkAdd([].slice.call(t.files)); t.value = ''; }
+    else if (t.dataset.bname !== undefined) { var r = bulk.rows[+t.dataset.bname]; if (r) r.name = t.value; }
+    else if (t.dataset.btype !== undefined) { var r2 = bulk.rows[+t.dataset.btype]; if (r2) r2.ptype = t.value; }
+    else if (t.dataset.bulkall !== undefined && t.value) { bulk.rows.forEach(function (x) { if (x.status === 'queued') x.ptype = t.value; }); bulkRender(); }
   });
   document.addEventListener('click', function (e) {
     var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act;
@@ -2256,7 +2352,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
       var picked = [].map.call(document.querySelectorAll('[data-impi]:checked'), function (c) { return imp.list[+c.dataset.impi]; });
       if (imp.mode === 'ref') {
         var nm = (($('#impname') || {}).value || '').trim(); if (!nm) return toast('Give the project a name.');
-        var rec = { id: SS.uid(), name: nm, number: (($('#impnum') || {}).value || '').trim(), source: 'Imported manual', at: Date.now(), sections: picked.map(function (x) { return { code: x.code, title: x.title, body: x.body }; }) };
+        var rec = { id: SS.uid(), name: nm, number: (($('#impnum') || {}).value || '').trim(), source: 'Imported manual', ptype: (($('#imptype') || {}).value || ''), at: Date.now(), sections: picked.map(function (x) { return { code: x.code, title: x.title, body: x.body }; }) };
         archive.push(rec); saveArchive(); closeModal(); ui.view = 'archive'; ui.archId = rec.id; render(); toast(picked.length + ' sections saved to Reference projects'); return;
       }
       var std = $('#impstd') && $('#impstd').checked, n = 0;
@@ -2720,12 +2816,12 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
       var rows = a.sections.slice().sort(function (x, y) { return SS.sortCodes(x.code, y.code); }).map(function (s) { return '<tr><td>' + esc(s.code) + '</td><td>' + esc(s.title) + '</td><td class="small muted">' + s.body.split('\n').length + ' lines</td><td style="text-align:right;white-space:nowrap"><button class="btn sm" data-act="avopen" data-aid="' + a.id + '" data-code="' + esc(s.code) + '">View / use</button></td></tr>'; }).join('');
       var fld = function (k, l) { return '<div class="fld"><label>' + l + '</label><input type="text" data-af="' + k + '" value="' + esc(a[k] || '') + '"></div>'; };
       return '<div class="wrap"><div class="row"><button class="btn sm" data-act="archback">← All reference projects</button><div class="sp"></div><button class="btn sm" data-act="archlibnew">Add new section numbers to master library</button><button class="btn sm danger" data-act="archdel">Delete</button></div>' +
-        '<h1 style="margin-top:12px">' + esc(a.name) + '</h1><div class="panel"><div class="two">' + fld('name', 'Project name') + fld('number', 'Project no. / date') + '</div><div class="small muted">' + a.sections.length + ' sections • ' + esc(a.source || '') + ' • added ' + dstr(a.at) + '</div></div>' +
+        '<h1 style="margin-top:12px">' + esc(a.name) + '</h1><div class="panel"><div class="two">' + fld('name', 'Project name') + fld('number', 'Project no. / date') + '</div><div class="fld"><label>Project type</label><select data-af="ptype"><option value="">(not set)</option>' + SS.PTYPES.map(function (t) { return '<option value="' + t + '"' + (a.ptype === t ? ' selected' : '') + '>' + esc(SS.PTYPE_LABELS[t]) + '</option>'; }).join('') + '</select></div><div class="small muted">' + a.sections.length + ' sections • ' + esc(a.source || '') + ' • added ' + dstr(a.at) + '</div></div>' +
         '<div class="panel"><table class="tbl"><tr><th>No.</th><th>Section</th><th></th><th></th></tr>' + rows + '</table></div></div>';
     }
     var q = ui.archQ || '', hits = q.trim() ? archSearch(q) : [];
-    var cards = archive.slice().sort(function (x, y) { return y.at - x.at; }).map(function (a) { return '<div class="panel" style="cursor:pointer" data-act="archopen" data-aid="' + a.id + '"><div class="row"><b>' + esc(a.name) + '</b>' + (a.number ? '<span class="small muted">' + esc(a.number) + '</span>' : '') + '<div class="sp"></div><span class="small muted">' + a.sections.length + ' sections • ' + esc(a.source || '') + '</span></div></div>'; }).join('');
-    return '<div class="wrap"><div class="row"><div><h1>Reference projects</h1><div class="muted">Past project manuals kept as written. Search every section across all of them, view one, and copy it into a project or the master library.</div></div><div class="sp"></div><button class="btn pri" data-act="refimport">+ Import a project manual</button></div>' +
+    var cards = archive.slice().sort(function (x, y) { return y.at - x.at; }).map(function (a) { return '<div class="panel" style="cursor:pointer" data-act="archopen" data-aid="' + a.id + '"><div class="row"><b>' + esc(a.name) + '</b>' + (a.ptype ? '<span class="badge b">' + esc(a.ptype) + '</span>' : '') + (a.number ? '<span class="small muted">' + esc(a.number) + '</span>' : '') + '<div class="sp"></div><span class="small muted">' + a.sections.length + ' sections • ' + esc(a.source || '') + '</span></div></div>'; }).join('');
+    return '<div class="wrap"><div class="row"><div><h1>Reference projects</h1><div class="muted">Past project manuals kept as written. Search every section across all of them, view one, and copy it into a project or the master library.</div></div><div class="sp"></div><button class="btn" data-act="bulkimport">Bulk import</button><button class="btn pri" data-act="refimport">+ Import a project manual</button></div>' +
       '<div class="row" style="margin:14px 0"><input type="text" id="archq" placeholder="Search all reference projects: a section number, a title, or any wording" value="' + esc(q) + '" style="flex:1;padding:8px 12px;border-radius:999px"></div>' +
       (q.trim() ? '<div class="panel">' + (hits.length ? '<div class="small muted" style="margin-bottom:4px">' + hits.length + (hits.length === 100 ? '+' : '') + ' matching sections</div>' + hitRows(hits) : '<div class="empty">Nothing matches.</div>') + '</div>' : (cards || '<div class="panel"><div class="empty">No reference projects yet. Import a past manual (PDF or Word), or open one of your Slate Specs projects and use “Add to Reference projects” on the Issue / export tab.</div></div>')) + '</div>';
   }
@@ -2788,7 +2884,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
       var rs = renderedFor(p, 'all', false); if (!rs.length) return toast('Nothing to add. Included sections have no text yet.');
       var ex = archive.filter(function (a) { return a.fromId === p.id; })[0];
       if (ex && !confirm('Replace the saved copy of this project in Reference projects?')) return;
-      var rec = ex || { id: SS.uid(), fromId: p.id, at: 0 }; rec.name = p.name || 'Untitled'; rec.number = [p.number, p.issueDate].filter(Boolean).join(' • '); rec.source = 'Slate Specs project'; rec.at = Date.now();
+      var rec = ex || { id: SS.uid(), fromId: p.id, at: 0 }; rec.name = p.name || 'Untitled'; rec.number = [p.number, p.issueDate].filter(Boolean).join(' • '); rec.source = 'Slate Specs project'; rec.ptype = p.ptype || rec.ptype || ''; rec.at = Date.now();
       rec.sections = rs.map(function (r) { return { code: r.code, title: r.title, body: renderedBody(r) }; }); if (!ex) archive.push(rec); saveArchive(); render(); toast('Saved to Reference projects');
     }
     else if (act === 'refsec') { ui.refQ = null; refModal(p, s); }
@@ -2807,6 +2903,84 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
   document.addEventListener('change', function (e) {
     var t = e.target; if (t.dataset.af === undefined) return; var a = archById(ui.archId); if (a) { a[t.dataset.af] = t.value.trim(); saveArchive(); if (t.dataset.af === 'name') render(); }
   });
+
+/* ================= PROJECT TYPES ================= */
+(function () {
+  function typeCounts() {
+    var o = {}; SS.PTYPES.forEach(function (t) { o[t] = { n: 0, c: {} }; });
+    archive.forEach(function (a) {
+      if (!o[a.ptype]) return; o[a.ptype].n++; var seen = {};
+      (a.sections || []).forEach(function (s) { if (seen[s.code]) return; seen[s.code] = 1; o[a.ptype].c[s.code] = (o[a.ptype].c[s.code] || 0) + 1; });
+    });
+    return o;
+  }
+  function inSet(t, code) { return (typeSets()[t] || []).indexOf(code) >= 0; }
+  function typeCodes(counts) {
+    var seen = {}, ts = typeSets();
+    SS.PTYPES.forEach(function (t) { (ts[t] || []).forEach(function (c) { seen[c] = 1; }); Object.keys(counts[t].c).forEach(function (c) { seen[c] = 1; }); });
+    (ui.typeExtra || []).forEach(function (c) { seen[c] = 1; });
+    return Object.keys(seen).sort(SS.sortCodes);
+  }
+  window.typeBar = function (p) {
+    if (!p || !p.ptype) return '<div class="small muted" style="margin-top:12px">Pick a project type to compare this project against that type’s section set.</div>';
+    var set = typeSets()[p.ptype] || [], missing = set.filter(function (c) { return !p.sections.some(function (s) { return s.code === c; }); });
+    var lbl = SS.PTYPE_LABELS[p.ptype];
+    return missing.length
+      ? '<div class="row" style="margin-top:12px"><span class="small">' + missing.length + ' section' + (missing.length > 1 ? 's' : '') + ' in the ' + esc(lbl) + ' set ' + (missing.length > 1 ? 'are' : 'is') + ' not in this project: ' + esc(missing.slice(0, 6).join(', ')) + (missing.length > 6 ? '…' : '') + '.</span><div class="sp"></div><button class="btn sm" data-act="typeadd">Add them</button></div>'
+      : '<div class="small muted" style="margin-top:12px">This project has every section in the ' + esc(lbl) + ' set. Sets are edited in Settings.</div>';
+  };
+  function typePanel() {
+    var counts = typeCounts(), codes = typeCodes(counts), ts = typeSets();
+    var rows = codes.map(function (c) {
+      var flags = SS.PTYPES.map(function (t) { return inSet(t, c); }), diff = flags.some(function (x) { return x !== flags[0]; });
+      if (ui.typeDiff && !diff) return '';
+      return '<tr' + (diff ? ' style="background:var(--surface2,rgba(127,127,127,.07))"' : '') + '><td class="small" style="white-space:nowrap">' + esc(c) + '</td><td class="small">' + esc(catTitle(c) || (library[c] && library[c].title) || '') + '</td>' +
+        SS.PTYPES.map(function (t) { var k = counts[t].c[c] || 0; return '<td style="text-align:center;white-space:nowrap"><input type="checkbox" data-tset="' + t + '" data-code="' + esc(c) + '"' + (inSet(t, c) ? ' checked' : '') + '>' + (counts[t].n ? ' <span class="small muted">' + k + '/' + counts[t].n + '</span>' : '') + '</td>'; }).join('') + '</tr>';
+    }).join('');
+    var head = SS.PTYPES.map(function (t) { return '<th style="text-align:center">' + esc(t) + '<div class="small muted" style="font-weight:400">' + (ts[t] || []).length + ' sections • ' + counts[t].n + ' ref. project' + (counts[t].n === 1 ? '' : 's') + '</div><button class="btn sm" data-act="typelearn" data-t="' + t + '"' + (counts[t].n ? '' : ' disabled') + '>Learn from projects</button> <button class="btn sm" data-act="typereset" data-t="' + t + '">Reset</button></th>'; }).join('');
+    return '<div class="panel"><h2>Project types</h2><div class="small muted" style="margin-bottom:8px">Each type has its own default set of sections, used when a new project picks that type. Tick or untick a section to change a type’s set. Shaded rows are sections where the types differ. Tag your Reference projects by type, and the k/n figures show how many of them contain each section. “Learn from projects” sets a type to the sections found in at least half of its reference projects. The sets start from ai3’s existing starter lists, so treat them as a starting point. A project’s type is also available to section text as <code>?(projectType=Hotel)</code> and <code>{{projectType}}</code>.</div>' +
+      '<div class="row" style="margin-bottom:8px"><label class="small"><input type="checkbox" data-typediff' + (ui.typeDiff ? ' checked' : '') + '> Only show sections that differ</label><div class="sp"></div><input type="text" id="typenew" placeholder="Add a row: 09 300" style="width:130px;padding:6px"><button class="btn sm" data-act="typenewrow">Add row</button></div>' +
+      '<div style="max-height:420px;overflow:auto"><table class="tbl"><tr><th>No.</th><th>Section</th>' + head + '</tr>' + (rows || '<tr><td colspan="6" class="muted">Nothing to show.</td></tr>') + '</table></div></div>';
+  }
+  var viewSettings1 = viewSettings;
+  viewSettings = function () { var h = viewSettings1(), i = h.lastIndexOf('</div>'); return h.slice(0, i) + typePanel() + h.slice(i); };
+
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act, p = proj();
+    if (act === 'typeadd') {
+      if (!p || !p.ptype) return; var set = typeSets()[p.ptype] || [], before = p.sections.length;
+      addSections(p, set); saveProjects(); render(); toast((p.sections.length - before) + ' sections added');
+    }
+    else if (act === 'typelearn') {
+      var t = el.dataset.t, c = typeCounts()[t]; if (!c.n) return;
+      var learned = Object.keys(c.c).filter(function (k) { return c.c[k] / c.n >= 0.5; }).sort(SS.sortCodes);
+      if (!learned.length) return toast('No section appears in half of the ' + t + ' projects.');
+      if (!confirm('Set the ' + t + ' list to the ' + learned.length + ' sections found in at least half of your ' + c.n + ' ' + t + ' reference project' + (c.n > 1 ? 's' : '') + '?' + (c.n < 3 ? ' With fewer than 3 projects this will mostly mirror them.' : '') + ' This replaces the current ' + (typeSets()[t] || []).length + '-section list.')) return;
+      typeSets()[t] = learned; saveSettings(); render(); toast(t + ' set updated');
+    }
+    else if (act === 'typereset') {
+      var t2 = el.dataset.t; if (!confirm('Reset the ' + t2 + ' list to the starting set?')) return;
+      typeSets()[t2] = (SS.TYPE_SEED[t2] || []).slice(); saveSettings(); render();
+    }
+    else if (act === 'typenewrow') {
+      var v = (($('#typenew') || {}).value || '').trim().replace(/\s+/g, ' '); var m = v.match(/^(\d{2})\s?(\d{3,4})$/); if (!m) return toast('Enter a section number like 09 300.');
+      var code = m[1] + ' ' + m[2]; ui.typeExtra = (ui.typeExtra || []).concat(code); render();
+    }
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.dataset.tset !== undefined) {
+      var set = typeSets()[t.dataset.tset] || (typeSets()[t.dataset.tset] = []), i = set.indexOf(t.dataset.code);
+      if (t.checked && i < 0) { set.push(t.dataset.code); set.sort(SS.sortCodes); } else if (!t.checked && i >= 0) set.splice(i, 1);
+      saveSettings(); render();
+    }
+    else if (t.dataset.typediff !== undefined) { ui.typeDiff = t.checked; render(); }
+    else if (t.dataset.pf === 'ptype') {
+      var np = $('#npstart'); if (np && t.value) np.value = 't:' + t.value;
+      var bar = $('#typebar'), p = proj(); if (bar && p && ui.tab === 'info') { p.ptype = t.value; saveSoon(); bar.innerHTML = typeBar(p); }
+    }
+  });
+})();
 
 
   window.addEventListener('beforeunload', function () { saveProjects(); });
