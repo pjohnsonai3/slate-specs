@@ -4111,7 +4111,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
 
 /* ================= VERSION LABEL ================= */
 (function () {
-  var V = '3.15';
+  var V = '3.17';
   window.SS_VERSION = V;
   var h0 = window.viewHelp, vs9 = viewSettings;
   window.viewHelp = function () { return h0().replace('How to use Slate Specs, from the first project to issuing the set.', 'How to use Slate Specs, from the first project to issuing the set. <span class="small">You are running version ' + V + '.</span>'); };
@@ -4277,7 +4277,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
   var vs = viewSections;
   viewSections = function (p) {
     var h = vs.apply(this, arguments);
-    return h.replace('<button class="btn sm" data-act="reuse"', '<button class="btn sm" data-act="allfinal" title="Mark every included section final">All final</button><button class="btn sm" data-act="reuse"');
+    return h.replace('<b>Preview</b><div class="sp"></div>', '<b>Preview</b><div class="sp"></div><button class="btn sm" data-act="histundo" title="Put back the text from before the last change">↶ Undo</button><button class="btn sm" data-act="histopen" title="Earlier versions of this section">History</button>').replace('<button class="btn sm" data-act="reuse"', '<button class="btn sm" data-act="allfinal" title="Mark every included section final">All final</button><button class="btn sm" data-act="reuse"');
   };
   document.addEventListener('click', function (e) {
     var el = e.target.closest('[data-act="allfinal"]'); if (!el) return; e.stopImmediatePropagation();
@@ -4290,6 +4290,88 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
     if (!confirm('Mark ' + todo.length + ' section' + (todo.length === 1 ? '' : 's') + ' final?' + (open ? '\n\n' + open + ' still ha' + (open === 1 ? 's' : 've') + ' open items (blank answers). You can still mark them final, and the pre-issue check will list them.' : '') + '\n\nOnly included sections with text change. Undo or each section\'s status menu reverses it.')) return;
     todo.forEach(function (s) { s.status = 'final'; }); saveProjects(); render(); toast(todo.length + ' section' + (todo.length === 1 ? '' : 's') + ' marked final');
   }, true);
+})();
+
+
+/* ================= FIND & REPLACE ================= */
+(function () {
+  var fr = { q: '', r: '', cs: false, ww: false, scope: 'all', exc: false };
+  var TOK = /(\{\{[^}]*\}\}|\?\([^)]*\))/;
+  function rx() {
+    var q = fr.q; if (!q) return null; var e = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (fr.ww) e = '(?<![\\w])' + e + '(?![\\w])';
+    return new RegExp(e, fr.cs ? 'g' : 'gi');
+  }
+  function lineSplit(line) { var m = /^(\s*(?:[1-4NnS]:\s?|#{1,2}\s+))([\s\S]*)$/.exec(line); return m ? [m[1], m[2]] : ['', line]; }
+  function procLine(line, re, rep) {
+    var sp = lineSplit(line), n = 0, parts = sp[1].split(TOK);
+    for (var i = 0; i < parts.length; i += 2) parts[i] = parts[i].replace(re, function (m) { n++; return rep == null ? m : rep; });
+    return { line: sp[0] + parts.join(''), n: n };
+  }
+  function scan() {
+    var p = proj(), re = rx(), out = []; if (!p || !re) return out;
+    var secs = p.sections.filter(function (s) { return (fr.scope === 'one' ? s.code === ui.code : (fr.exc || s.on !== false)); });
+    secs.forEach(function (s) {
+      var lines = s.body.split(/\r?\n/), L = [];
+      lines.forEach(function (ln, i) { var t = procLine(ln, re, null); if (t.n) L.push({ i: i, text: lineSplit(ln)[1], n: t.n }); });
+      if (L.length) out.push({ s: s, lines: L, total: L.reduce(function (a, b) { return a + b.n; }, 0) });
+    });
+    return out;
+  }
+  function hl(text, re) {
+    var parts = text.split(TOK), h = '';
+    parts.forEach(function (pt, i) { h += i % 2 ? '<span class="muted">' + esc(pt) + '</span>' : esc(pt).replace(new RegExp(re.source.replace(/&/g, '&amp;'), re.flags), function (m) { return '<mark>' + m + '</mark>'; }); });
+    return h;
+  }
+  function results() {
+    var el = $('#frres'); if (!el) return; var re = rx();
+    if (!re) { el.innerHTML = '<div class="small muted">Type the word or phrase to find.</div>'; fr.hits = []; return; }
+    var hits = scan(); fr.hits = hits;
+    var tot = hits.reduce(function (a, h) { return a + h.total; }, 0);
+    el.innerHTML = (hits.length ? '<div class="small muted" style="margin-bottom:6px">' + tot + ' match' + (tot === 1 ? '' : 'es') + ' in ' + hits.length + ' section' + (hits.length === 1 ? '' : 's') + '. Untick any line you want to leave alone.</div>' : '<div class="empty">Nothing found.</div>') +
+      hits.map(function (h, hi) {
+        return '<div style="margin-bottom:8px"><label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" data-frsec="' + hi + '" checked><span class="c">' + esc(h.s.code) + '</span> ' + esc(h.s.title) + (h.s.on === false ? ' <span class="badge">excluded</span>' : '') + ' <span class="small muted">' + h.total + '</span><span class="sp"></span><a href="#" data-act="gotosec" data-code="' + esc(h.s.code) + '" class="small">Open</a></label>' +
+          h.lines.slice(0, 60).map(function (l) { var after = fr.r !== '' || true ? procLine((l.text), re, fr.r).line : ''; return '<label style="display:flex;gap:8px;padding:3px 0 3px 22px;font-size:12px;line-height:1.45"><input type="checkbox" data-frln="' + hi + ':' + l.i + '" checked><span>' + hl(l.text.length > 220 ? snippet(l.text, re) : l.text, re) + (fr.r !== '' ? '<br><span style="color:#2a7a3b">→ ' + esc((function (t) { return t.length > 220 ? t.slice(0, 220) + '…' : t; })(procLine(l.text, re, fr.r).line)) + '</span>' : '') + '</span></label>'; }).join('') + (h.lines.length > 60 ? '<div class="small muted" style="padding-left:22px">+ ' + (h.lines.length - 60) + ' more lines (all are replaced if the section is ticked)</div>' : '') + '</div>';
+      }).join('');
+    var b = $('#frgo'); if (b) b.disabled = !hits.length;
+  }
+  function snippet(t, re) { var m = re.exec(t); re.lastIndex = 0; var at = m ? m.index : 0; return (at > 80 ? '…' : '') + t.slice(Math.max(0, at - 80), at + 140) + '…'; }
+  function open() {
+    var p = proj(); if (!p) return;
+    fr.q = fr.q || ''; var sel = ''; try { sel = String(window.getSelection() || '').trim(); } catch (e) {} if (sel && sel.length < 80 && sel.indexOf('\n') < 0) fr.q = sel;
+    modal('<h2>Find and replace</h2>' +
+      '<div class="two"><div class="fld"><label>Find</label><input type="text" id="frq" value="' + esc(fr.q) + '" placeholder="word or phrase" autocomplete="off"></div><div class="fld"><label>Replace with</label><input type="text" id="frr" value="' + esc(fr.r) + '" placeholder="(leave blank to delete the text)" autocomplete="off"></div></div>' +
+      '<div class="row small" style="gap:14px;margin:2px 0 10px;flex-wrap:wrap"><label><input type="checkbox" id="frcs"' + (fr.cs ? ' checked' : '') + '> Match case</label><label><input type="checkbox" id="frww"' + (fr.ww ? ' checked' : '') + '> Whole words only</label><label><input type="checkbox" id="frexc"' + (fr.exc ? ' checked' : '') + '> Include sections left out of the manual</label><span class="sp"></span><select id="frscope"><option value="all"' + (fr.scope === 'all' ? ' selected' : '') + '>All sections</option><option value="one"' + (fr.scope === 'one' ? ' selected' : '') + '>Only the selected section</option></select></div>' +
+      '<div id="frres" style="max-height:46vh;overflow:auto"></div>' +
+      '<div class="small muted" style="margin-top:6px">Replaces the section text only. Project fields such as {{project.name}} and conditions are never touched. Each changed section keeps its earlier text, so ↶ Undo and History bring it back.</div>' +
+      '<div class="mfoot"><button class="btn" data-act="closemodal">Close</button><button class="btn pri" id="frgo" data-act="frgo" disabled>Replace selected</button></div>');
+    results(); setTimeout(function () { var i = $('#frq'); if (i) { i.focus(); i.select(); } }, 30);
+  }
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]'); if (!el) return;
+    if (el.dataset.act === 'fropen') open();
+    else if (el.dataset.act === 'frgo') {
+      var re = rx(), hits = fr.hits || [], n = 0, ns = 0; if (!re) return;
+      var cnt = document.querySelectorAll('[data-frln]:checked').length; if (!cnt) return toast('Nothing ticked.');
+      if (!confirm('Replace ' + (fr.q) + ' with ' + (fr.r === '' ? '(nothing)' : fr.r) + ' in ' + cnt + ' line' + (cnt === 1 ? '' : 's') + '?')) return;
+      hits.forEach(function (h, hi) {
+        var lines = h.s.body.split(/\r?\n/), ch = false;
+        h.lines.forEach(function (l) { var cb = document.querySelector('[data-frln="' + hi + ':' + l.i + '"]'); var sec = document.querySelector('[data-frsec="' + hi + '"]'); var on = cb ? cb.checked : (sec && sec.checked); if (!on) return; var t = procLine(lines[l.i], re, fr.r); if (t.n) { lines[l.i] = t.line; n += t.n; ch = true; } });
+        if (ch) { h.s.body = lines.join('\n'); ns++; }
+      });
+      if (!n) return toast('Nothing changed.');
+      saveProjects(); render(); open(); toast('Replaced ' + n + ' in ' + ns + ' section' + (ns === 1 ? '' : 's'));
+    }
+  });
+  document.addEventListener('input', function (e) { var t = e.target; if (t.id === 'frq') { fr.q = t.value; results(); } else if (t.id === 'frr') { fr.r = t.value; results(); } });
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.id === 'frcs') { fr.cs = t.checked; results(); } else if (t.id === 'frww') { fr.ww = t.checked; results(); } else if (t.id === 'frexc') { fr.exc = t.checked; results(); } else if (t.id === 'frscope') { fr.scope = t.value; results(); }
+    else if (t.dataset && t.dataset.frsec !== undefined) { [].forEach.call(document.querySelectorAll('[data-frln^="' + t.dataset.frsec + ':"]'), function (c) { c.checked = t.checked; }); }
+  });
+  document.addEventListener('keydown', function (e) { if ((e.metaKey || e.ctrlKey) && (e.key === 'h' || e.key === 'H') && ui.view === 'project') { e.preventDefault(); open(); } });
+  var vp = viewProject;
+  viewProject = function () { return vp.apply(this, arguments).replace('<button class="btn sm" data-act="findopen"', '<button class="btn sm" data-act="fropen" title="Find and replace (Ctrl/Cmd+H)">Replace</button><button class="btn sm" data-act="findopen"'); };
 })();
 
 

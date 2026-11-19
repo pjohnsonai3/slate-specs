@@ -9,7 +9,7 @@ appjs=rd('app.js').replace('/*__SOURCES__*/',rd('sources.inc.js')).replace('/*__
 head='''<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Slate Specs — an ai3 product</title>
-<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&family=Questrial&display=swap" rel="stylesheet">
 <script>try{if(localStorage.getItem('ai3_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}window.__AI3_LOGO="'''+rd('ai3logo.txt').strip()+'''";</script>\n<style>'''+rd('app.css')+'''</style></head>
 <body><div id="app"></div>
 <!-- Supabase client, fflate and pdf-lib are inlined so there is no CDN dependency -->
