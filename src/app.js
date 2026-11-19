@@ -118,7 +118,7 @@
       if (d !== last) { h += '<div class="div">Div ' + d + ' – ' + esc(SS.DIVISIONS[d] || '') + '</div>'; last = d; }
       var badge = '';
       if (!s.body.trim()) badge = '<span class="badge n">no text</span>';
-      else { var r = renderSec(p, s); badge = s.status === 'final' ? '<span class="badge g">final</span>' : r.unresolved ? '<span class="badge">' + r.unresolved + ' open</span>' : s.status === 'review' ? '<span class="badge b">review</span>' : '<span class="badge g">✓</span>'; }
+      else { var r = renderSec(p, s); badge = r.unresolved ? '<span class="badge r" title="Open questions or blanks to resolve">' + r.unresolved + ' open</span>' : (r.refMissing || []).length ? '<span class="badge r" title="Refers to a section that is not in this project">ref issue</span>' : s.status === 'final' ? '<span class="badge g">final</span>' : s.status === 'review' ? '<span class="badge b">review</span>' : '<span class="badge g">✓</span>'; }
       h += '<div class="sec ' + (s.code === ui.code ? 'on ' : '') + (s.on ? '' : 'off') + '" data-act="selsec" data-code="' + s.code + '"><input type="checkbox" data-act="toggle" data-code="' + s.code + '" ' + (s.on ? 'checked' : '') + ' title="Include in manual"><span class="c">' + s.code + '</span><span class="t">' + esc(s.title) + '</span>' + badge + '</div>';
     });
     return h || '<div class="empty small">No sections yet. Use “+ Add” to pick from the catalog.</div>';

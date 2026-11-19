@@ -1261,7 +1261,7 @@
       if (shut) return;
       var badge;
       if (!r) badge = '<span class="badge n">no text</span>';
-      else badge = s.status === 'final' ? '<span class="badge g">final</span>' : r.unresolved ? '<span class="badge">' + r.unresolved + ' open</span>' : s.status === 'review' ? '<span class="badge b">review</span>' : '<span class="badge g">✓</span>';
+      else badge = r.unresolved ? '<span class="badge r" title="Open questions or blanks to resolve">' + r.unresolved + ' open</span>' : (r.refMissing || []).length ? '<span class="badge r" title="Refers to a section that is not in this project">ref issue</span>' : s.status === 'final' ? '<span class="badge g">final</span>' : s.status === 'review' ? '<span class="badge b">review</span>' : '<span class="badge g">✓</span>';
       var nc = openCm(s).length;
       h += '<div class="sec ' + (s.code === ui.code ? 'on ' : '') + (s.on ? '' : 'off') + '" data-act="selsec" data-code="' + s.code + '"><input type="checkbox" data-act="toggle" data-code="' + s.code + '" ' + (s.on ? 'checked' : '') + ' title="Include in manual"><span class="c">' + s.code + '</span><span class="t">' + esc(s.title) + '</span>' + (nc ? '<span class="badge r" title="Open comments">💬 ' + nc + '</span>' : '') + badge + '</div>';
     });
@@ -1733,7 +1733,7 @@
 
 /* ================= VERSION LABEL ================= */
 (function () {
-  var V = '3.17';
+  var V = '3.18';
   window.SS_VERSION = V;
   var h0 = window.viewHelp, vs9 = viewSettings;
   window.viewHelp = function () { return h0().replace('How to use Slate Specs, from the first project to issuing the set.', 'How to use Slate Specs, from the first project to issuing the set. <span class="small">You are running version ' + V + '.</span>'); };
