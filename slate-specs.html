@@ -4110,7 +4110,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
 
 /* ================= VERSION LABEL ================= */
 (function () {
-  var V = '3.12';
+  var V = '3.13';
   window.SS_VERSION = V;
   var h0 = window.viewHelp, vs9 = viewSettings;
   window.viewHelp = function () { return h0().replace('How to use Slate Specs, from the first project to issuing the set.', 'How to use Slate Specs, from the first project to issuing the set. <span class="small">You are running version ' + V + '.</span>'); };
@@ -4138,6 +4138,66 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
 
 /* ================= EMBEDDED QUESTRIAL (Century Gothic look-alike) ================= */
 (function () { try { var st = document.createElement('style'); st.id = 'qfont'; st.textContent = SS.FONTFACE; document.head.appendChild(st); } catch (e) {} })();
+
+
+/* ================= REUSE: copy sections from another project OR a reference project ================= */
+(function () {
+  var st = { src: '', q: '' };
+  function sources(p) {
+    var live = projects.filter(function (x) { return x.id !== p.id && x.sections.some(function (q) { return (q.body || '').trim(); }); });
+    return { live: live, ref: archive.filter(function (a) { return a.sections && a.sections.length; }) };
+  }
+  function secsOf(src) {
+    if (!src) return [];
+    if (src.kind === 'p') { var x = projects.filter(function (y) { return y.id === src.id; })[0]; return x ? x.sections.filter(function (q) { return (q.body || '').trim(); }) : []; }
+    var a = archById(src.id); return a ? a.sections.filter(function (q) { return (q.body || '').trim(); }) : [];
+  }
+  function parse(v) { return v ? { kind: v.charAt(0), id: v.slice(2) } : null; }
+  function open(keep) {
+    var p = proj(), S = sources(p);
+    if (!S.live.length && !S.ref.length) return toast('No other projects or reference projects with sections yet.');
+    if (!st.src || !(S.live.some(function (x) { return 'p:' + x.id === st.src; }) || S.ref.some(function (x) { return 'a:' + x.id === st.src; }))) st.src = S.live.length ? 'p:' + S.live[0].id : 'a:' + S.ref[0].id;
+    var src = parse(st.src), isRef = src.kind === 'a', q = st.q.trim().toLowerCase();
+    var list = secsOf(src).filter(function (x) { return !q || (x.code + ' ' + x.title + ' ' + x.body).toLowerCase().indexOf(q) >= 0; });
+    var opts = (S.live.length ? '<optgroup label="Your projects">' + S.live.map(function (x) { return '<option value="p:' + x.id + '"' + ('p:' + x.id === st.src ? ' selected' : '') + '>' + esc(x.name || 'Untitled') + '</option>'; }).join('') + '</optgroup>' : '') +
+      (S.ref.length ? '<optgroup label="Reference projects">' + S.ref.map(function (x) { return '<option value="a:' + x.id + '"' + ('a:' + x.id === st.src ? ' selected' : '') + '>' + esc(x.name || 'Untitled') + '</option>'; }).join('') + '</optgroup>' : '');
+    var rows = list.map(function (x) {
+      var have = p.sections.some(function (y) { return y.code === x.code; });
+      return '<label class="sec" style="cursor:pointer"><input type="checkbox" data-ruse="' + esc(x.code) + '"><span class="c">' + esc(x.code) + '</span><span class="t">' + esc(x.title) + '</span>' + (have ? '<span class="badge">replaces</span>' : '<span class="badge g">new</span>') + '</label>';
+    }).join('') || '<div class="empty">No sections match.</div>';
+    var h = '<h2>Copy sections into this project</h2><div class="fld"><label>Copy from</label><select data-ruse-src>' + opts + '</select></div>' +
+      '<div class="row" style="margin-bottom:6px"><input type="text" id="rusq" value="' + esc(st.q) + '" style="flex:1;padding:8px 12px;border-radius:999px" placeholder="Search by section number, title or wording"><button class="btn sm" data-act="rusall">Select all shown</button></div>' +
+      '<div id="rusrows" style="max-height:44vh;overflow:auto">' + rows + '</div>' +
+      (isRef ? '<div class="small muted" style="margin-top:8px">Reference projects keep the text as written. Fill in the project-specific answers after copying.</div>' : '<div class="small" style="margin-top:8px"><label><input type="checkbox" id="rusans" checked> Copy answers and notes too (otherwise answers start blank)</label></div>') +
+      '<div class="mfoot"><button class="btn" data-act="closemodal">Cancel</button><button class="btn pri" data-act="rusgo">Copy selected</button></div>';
+    modal(h);
+    if (keep) { var qi = $('#rusq'); if (qi) { qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); } }
+  }
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act;
+    if (act === 'reuse') { e.stopImmediatePropagation(); st.q = ''; open(); }
+    else if (act === 'rusall') { [].forEach.call(document.querySelectorAll('[data-ruse]'), function (c) { c.checked = true; }); }
+    else if (act === 'rusgo') {
+      var p = proj(), src = parse(st.src), n = 0, keep = $('#rusans') ? $('#rusans').checked : true;
+      [].forEach.call(document.querySelectorAll('[data-ruse]:checked'), function (c) {
+        var o = secsOf(src).filter(function (x) { return x.code === c.dataset.ruse; })[0]; if (!o) return;
+        if (src.kind === 'p') {
+          var nu = clone(o); nu.on = true; nu.status = 'draft'; if (!keep) { nu.answers = {}; nu.aiKeys = []; nu.notes = ''; }
+          var i = p.sections.findIndex(function (x) { return x.code === nu.code; }); if (i >= 0) p.sections[i] = nu; else p.sections.push(nu);
+        } else {
+          var ex = p.sections.filter(function (x) { return x.code === o.code; })[0];
+          if (ex) { ex.body = o.body; ex.on = true; ex.status = 'draft'; }
+          else { var ns = newSection(o.code, o.title); ns.title = o.title; ns.body = o.body; ns.questions = []; ns.libRev = 0; p.sections.push(ns); }
+        }
+        n++;
+      });
+      if (!n) return toast('Tick at least one section.');
+      p.sections.sort(function (a, b) { return SS.sortCodes(a.code, b.code); }); saveProjects(); closeModal(); render(); toast('Copied ' + n + ' section' + (n === 1 ? '' : 's'));
+    }
+  }, true);
+  document.addEventListener('change', function (e) { if (e.target.dataset.ruseSrc !== undefined) { st.src = e.target.value; open(); } });
+  document.addEventListener('input', function (e) { if (e.target.id === 'rusq') { st.q = e.target.value; open(true); } });
+})();
 
 
   window.addEventListener('beforeunload', function () { saveProjects(); });
