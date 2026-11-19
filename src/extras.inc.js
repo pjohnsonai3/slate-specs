@@ -871,7 +871,7 @@
     }).join('');
     modal('<h2>Merge documents into the PDF</h2><div class="small muted" style="margin-bottom:10px">Step 1: export the manual to PDF the usual way (PDF button, then Save as PDF) and choose that file here. Step 2: add the documents to merge and say where each one goes.</div>' +
       '<div class="fld"><label>1. The manual PDF saved from Slate</label><input type="file" accept=".pdf,application/pdf" data-mgbase>' + (mg.base ? '<div class="small" style="margin-top:4px">' + esc(mg.base.name) + (mg.basePages ? ' • ' + mg.basePages + ' pages' : '') + (m && mg.basePages && mg.basePages !== m.total ? ' <span style="color:#a33">• Slate expects ' + m.total + ' pages, so positions may be off. Check the positions, or use “After page number”.</span>' : '') + '</div>' : '') + '</div>' +
-      '<div class="fld"><label>2. Documents to merge</label><label class="dz" data-dz="mg"><span class="dzt">✨ Drop PDFs here (AIA forms, bid forms, anything)</span><span class="dzs">or click to browse. Pick as many as you like.</span><input type="file" multiple accept=".pdf,application/pdf" data-mgdocs style="display:none"></label></div>' +
+      '<div class="fld"><label>2. Documents to merge</label><label class="dz" data-dz="mg"><span class="dzt">✨ Drop PDFs here (AIA forms, bid forms, anything)</span><span class="dzs">or click to browse. Pick as many as you like.</span><input type="file" multiple accept=".pdf,application/pdf" data-mgdocs style="display:none"></label>' + (window.stdPickHtml ? window.stdPickHtml(proj()) : '') + '</div>' +
       (m ? '' : '<div class="small muted">Reading the manual layout…</div>') +
       (rows ? '<div style="max-height:36vh;overflow:auto;border:1px solid var(--border);border-radius:8px"><table class="tbl"><tr><th>File</th><th>Bookmark name</th><th>Goes</th><th></th></tr>' + rows + '</table></div>' : '') +
       '<div class="small" id="mgstatus" style="margin-top:8px;min-height:18px"></div>' +
@@ -879,7 +879,7 @@
   }
   window.__mk = { pageMapFor: pageMapFor, addOutline: addOutline };
   window.mgAdd = function (files) {
-    files.forEach(function (f) { if (!/\.pdf$/i.test(f.name) || mg.docs.some(function (d) { return d.file.name === f.name && d.file.size === f.size; })) return; mg.docs.push({ file: f, label: f.name.replace(/\.pdf$/i, '').replace(/[_]+/g, ' '), pos: guessPos(f.name), page: '' }); });
+    files.forEach(function (f) { if (!/\.pdf$/i.test(f.name) || mg.docs.some(function (d) { return d.file.name === f.name && d.file.size === f.size; })) return; mg.docs.push({ file: f, label: f.__label || f.name.replace(/\.pdf$/i, '').replace(/[_]+/g, ' '), pos: guessPos(f.name), page: '' }); });
     mergeModal();
   };
   async function mergeRun() {
@@ -945,6 +945,7 @@
   function fput(id, blob) { return tx('readwrite', function (s) { return s.put(blob, id); }); }
   function fget(id) { return tx('readonly', function (s) { return s.get(id); }); }
   function fdel(id) { return tx('readwrite', function (s) { return s.delete(id); }); }
+  window.__fs = { put: fput, get: fget, del: fdel };
   var have = {};   // id -> true when the PDF is on this device
   function divOptions(sel) { return Object.keys(SS.DIVISIONS).sort().map(function (d) { return '<option value="' + d + '"' + (sel === d ? ' selected' : '') + '>' + parseInt(d, 10) + ' – ' + esc(SS.DIVISIONS[d]) + '</option>'; }).join(''); }
   window.viewConsultants = function (p) {
@@ -1452,16 +1453,16 @@
   var P = [
     ['quick', 'First project in 10 minutes', '<p>This is the shortest path from nothing to an issued manual.</p><ol><li><b>Create the project.</b> On <b>Projects</b>, press <b>+ New project</b>. Step 1 asks for the name, number, type, owner, address and phase. Step 2 asks for the building code, contract form and the design team. Step 3 picks the starting set of sections. Choosing a project type (hotel, restaurant, office, residential) preselects the set that fits it.</li><li><b>Open Sections.</b> Every included section is listed on the left. Sections with no text show a “no text” badge.</li><li><b>Fill the gaps.</b> Press <b>✨ Fill gaps</b> to write boilerplate for every included section that has none. Slate uses the ai3 master text from the library first and only asks AI to draft what the library lacks.</li><li><b>Answer the questions.</b> Click a section. Its project-specific questions are in the middle column. Answer them yourself, or paste design notes on <b>Project info &amp; notes</b> and press <b>✨ Apply notes &amp; uploads to all sections</b>.</li><li><b>Clear the open items.</b> Go to <b>Overview</b>. The “What to do next” list shows what is left, with a button for each item.</li><li><b>Issue it.</b> When Overview says everything is complete, press <b>Start guided issue</b>. It checks the set, names the issue, freezes it, and exports Word and/or PDF.</li></ol><p class="small muted">Tip: you do not need to finish every step before looking at the result. The preview on the right of the Sections tab shows the section as it will print.</p>'],
     ['how', 'How Slate works', '<p>Slate keeps three layers apart so edits never collide.</p><ul><li><b>The master library</b> holds ai3’s standard text for each section. Editing a master changes future projects only.</li><li><b>Each project</b> holds its own copy of every section. Changing a project section never touches the library unless you press <b>Save to library as ai3 standard</b>.</li><li><b>Answers</b> are the project-specific facts (board thickness, manufacturer, locations). The section text uses them as <code>{{variables}}</code>, and some paragraphs appear only when an answer calls for them.</li></ul><h3>What the marks mean</h3><ul><li><b>Yellow highlight on screen and in exports</b>: an unanswered question or anything left in [square brackets]. Nothing leaves the building unmarked.</li><li><b>Status</b> on each section: Draft, In review, Final. The Overview counts these.</li><li><b>Notes to specifier</b> appear only in review sets, never in an issue set.</li></ul><h3>Section text format</h3><p>Each line is one paragraph. <code># GENERAL</code> is a Part, <code>## SUMMARY</code> is an Article. <code>1:</code> to <code>4:</code> set the paragraph level (A., 1., a., 1)). <code>N:</code> is a note to specifier. <code>?(key=Value)</code> makes a line conditional on an answer. Part and Article numbers are added for you. The cheat sheet is on the section text editor in the library.</p>'],
-    ['projects', 'Projects, types and starting points', '<h3>Project types</h3><p>Hotel, restaurant, office and residential projects need different sections. Each type has its own section set, which you can change under <b>Settings → Project types</b>. Slate can also learn a set from your past projects.</p><h3>New project</h3><p><b>+ New project</b> runs a three-step wizard. Everything can be changed later on <b>Project info &amp; notes</b>. Defaults for the building code, contract form and architect come from your <b>Firm profile</b> in Settings.</p><h3>Duplicate</h3><p>Use <b>Duplicate</b> on a project card or in the project header to start the next project from a finished one. You choose whether to copy the section text and answers as they are, or only the list of sections with fresh master text. The project number, owner, address, issue date, issue history and notes are never copied. You can also keep the building code, the design team and the consultant specifications.</p><h3>Reuse</h3><p>On <b>Sections</b>, <b>Reuse</b> copies chosen sections from another project, with or without their answers.</p><h3>Bulk import</h3><p>On <b>Reference projects</b>, <b>Bulk import</b> reads many past project manuals (PDF or Word) at once and files each into your reference archive, tagged by project type. Slate then uses them when it drafts new sections. Files that are already in the archive are skipped.</p>'],
+    ['projects', 'Projects, types and starting points', '<h3>Project types</h3><p>Hotel, restaurant, office and residential projects need different sections. Each type has its own section set, which you can change under <b>Settings → Project types</b>. Slate can also learn a set from your past projects.</p><h3>New project</h3><p><b>+ New project</b> runs a three-step wizard. Everything can be changed later on <b>Project info &amp; notes</b>. Defaults for the building code, contract form and architect come from your <b>Firm profile</b> in Settings.</p><h3>Duplicate</h3><p>Use <b>Duplicate</b> on a project card or in the project header to start the next project from a finished one. You choose whether to copy the section text and answers as they are, or only the list of sections with fresh master text. The project number, owner, address, issue date, issue history and notes are never copied. You can also keep the building code, the design team and the consultant specifications.</p><h3>Import a finished manual as a project</h3><p>If the specifications are already written, press <b>Import a manual…</b> on the Projects page. Drop the PDF or Word file, or select all of the manual’s Word files at once when each section is its own file. A file named like “Table of Contents” or “Cover” is used for the project details and is not imported as a section. Slate reads the project details from the cover and splits the manual into sections, keeping your text exactly as written. You review the details and tick the sections to bring in, then press <b>Create project</b>. The cover page and table of contents are rebuilt by Slate. Consultant specifications and attachments are not read as sections: add them on the Consultants tab. Then add your finish schedules on Sources, clear the open items on Overview, and issue it.</p><h3>Add more sections from files later</h3><p>In any project, press <b>Import sections from files…</b> at the top of the section list. Select the Word or PDF files for the sections you want to add. Slate keeps your text as written. Sections that are new are ticked. Sections already in the project are left unticked: tick one to replace its text, and the old text stays in that section’s History.</p><h3>Reuse</h3><p>On <b>Sections</b>, <b>Reuse</b> copies chosen sections from another project, with or without their answers.</p><h3>Bulk import</h3><p>On <b>Reference projects</b>, <b>Bulk import</b> reads many past project manuals (PDF or Word) at once and files each into your reference archive, tagged by project type. Slate then uses them when it drafts new sections. Files that are already in the archive are skipped.</p>'],
     ['sections', 'Working in the Sections tab', '<h3>The three columns</h3><p><b>Left:</b> the section list. <b>Middle:</b> the selected section’s status, tools, questions and notes. <b>Right:</b> a live preview of how the section prints.</p><h3>Cover page and table of contents</h3><p>At the top of the section list are <b>Cover page</b> and <b>Table of contents</b>. Click either to see exactly how it will print, with real page counts. The middle column shows which fields feed it and where to change them. <b>Refresh preview</b> rebuilds it after you make changes.</p><h3>Finding your way</h3><ul><li>Type in the filter box to narrow the list by number or title.</li><li>The chips show sections that are <b>Not final</b>, have <b>No text</b>, have <b>Open items</b>, have <b>Comments</b>, or are <b>Excluded</b>.</li><li>Click a division heading to fold it.</li><li><b>↑ ↓</b> in the section header, or <b>Alt+↑ / Alt+↓</b>, move to the previous or next section in the filtered list.</li><li><b>Ctrl/Cmd+K</b> or <b>/</b> searches the text of every section, plus consultant specifications and products.</li></ul><h3>Adding and removing</h3><p>The checkbox next to a section includes it in the manual. <b>+ Add</b> opens the catalog of CSI sections. To change a section’s number, use <b>Renumber</b> in its header. References to it in other sections follow.</p><h3>Writing</h3><ul><li><b>✨ Generate boilerplate with AI</b> drafts a section that has no text.</li><li><b>✨ Fill answers from notes &amp; uploads</b> answers the section’s questions from your project notes and uploaded documents. AI-filled answers carry an AI badge so you can check them.</li><li><b>✨ AI review</b> reads the section and lists problems.</li><li><b>Edit section text</b> opens the raw text for direct editing.</li><li><b>Insert manufacturers</b> and <b>Build References</b> add those articles from what the section already cites.</li><li><b>Reference</b> shows how your past project manuals handled the same section.</li></ul><h3>Undo, history, comments</h3><p><b>↶ Undo</b> puts back the text from before the last change. <b>History</b> lists the last six versions, with a compare view and a Restore button. Slate saves a version before AI rewrites, library pulls, imports and larger edits. <b>Comments &amp; flags</b> are private notes for you and your team. They never print. They appear in the pre-issue check until you mark them resolved.</p><h3>Library updates</h3><p>When the master has a newer revision, the section shows <b>Library updated — pull latest</b> and <b>Review changes</b>, which shows exactly what would change.</p>'],
     ['sources', 'Notes, uploads and AI', '<h3>API key</h3><p>AI features need an Anthropic API key. Paste it under <b>Settings → AI</b>. It is stored only in this browser. Nothing else is sent anywhere except the text AI needs for the task you started.</p><h3>Project notes</h3><p>On <b>Project info &amp; notes</b>, paste the design narrative, meeting notes or owner program. AI uses it to answer each section’s questions. It fills blanks only and marks what it filled.</p><h3>Sources tab</h3><p>Drop finish schedules, door hardware sets and drawings here. Slate reads them and extracts finishes, hardware sets, wall types, code information, a sheet index and notes that affect specs. Sections can then be checked against them: <b>✨ Check vs drawings &amp; finishes</b> lists conflicts and gaps, which show up on the Coordination tab.</p><h3>What AI will not do</h3><p>It does not overwrite your text silently. It fills blanks, drafts empty sections, or proposes changes that you accept. Consultant specifications and merged PDFs are never sent to AI.</p>'],
     ['products', 'Writing a spec from a cut sheet', '<p>The <b>Products</b> tab turns a manufacturer cut sheet into a specification section.</p><ol><li>Drop the cut sheet (PDF or Word) onto the drop zone.</li><li>Slate shows <b>What the cut sheet says</b>: manufacturer, product, key properties, standards, options.</li><li>Choose the section number or let Slate suggest one.</li><li>It drafts the section using ai3’s section format, based only on the cut sheet. Anything it could not find is left in [brackets] for you to resolve.</li><li>Review the draft and apply it. <b>Undo</b> restores the previous state.</li></ol><p>The product is listed under <b>Products specified in this project</b>.</p>'],
     ['mods', 'Modifications and addenda', '<p>Use a modification when an addendum, bulletin or change order replaces specification sections.</p><ol><li>On <b>Issue / export</b>, find <b>Modifications</b>. Upload the change document (Word or PDF).</li><li>Slate reads it and separates the sections it contains into <b>replaced</b> (a section already in the project) and <b>new</b>.</li><li>Press <b>Compare</b> on any row to see the old text against the new, line by line.</li><li>Tick the sections you want and press <b>Apply</b>. Whole sections are replaced and new sections are added.</li><li><b>Undo</b> on the same panel puts everything back exactly as it was.</li></ol><p>Modifications replace whole sections, not paragraphs. For issuing addenda to the team, freeze an issue first so <b>Compare issues</b> can list what changed.</p><h3>Import edits from Word</h3><p>If someone edited an exported Word file, <b>Import edits from Word</b> on the Issue / export tab reads their changes and lets you accept them section by section.</p>'],
-    ['consult', 'Consultant specs and merging documents', '<h3>Consultant specifications</h3><p>The <b>Consultants</b> tab holds specification PDFs from your engineers. Drop each file, choose its discipline and division, and give it a title and number. Slate does not send these to AI or sort them. They are added to the manual and the table of contents when you merge. Use the arrows to set the order.</p><h3>Merge documents into the PDF</h3><p>On <b>Issue / export</b>, <b>Merge documents into the PDF</b> builds the final combined PDF. It asks you what you are merging:</p><ul><li>the exported Slate manual (PDF)</li><li>licensed documents such as the AIA A201 General Conditions or the owner’s agreement</li><li>appendices or other PDFs</li><li>consultant specifications from the Consultants tab</li></ul><p>For each file you choose where it goes: before or after a section, at the front, or at the end. Slate adds bookmarks for everything it merges, keeps your originals untouched, and the table of contents shows the consultant specifications with their page counts.</p><p class="small muted">Why export the PDF first: merging works on the finished PDF so page numbers are final.</p>'],
+    ['consult', 'Consultant specs and merging documents', '<h3>Consultant specifications</h3><p>The <b>Consultants</b> tab holds specification PDFs from your engineers. Drop each file, choose its discipline and division, and give it a title and number. Slate does not send these to AI or sort them. They are added to the manual and the table of contents when you merge. Use the arrows to set the order.</p><h3>Merge documents into the PDF</h3><p>On <b>Issue / export</b>, <b>Merge documents into the PDF</b> builds the final combined PDF. It asks you what you are merging:</p><ul><li>the exported Slate manual (PDF)</li><li>licensed documents such as the AIA A201 General Conditions or the owner’s agreement</li><li>appendices or other PDFs</li><li>consultant specifications from the Consultants tab</li></ul><p><b>Save the AIA forms once.</b> Under <b>Settings → Standard documents</b>, drop in your licensed A201 General Conditions, A101 and other forms. You can give each a name for the bookmark, paste a link to where it comes from, and tick <b>Add by default</b>. When you merge, a box lists them and ticks any that match the project’s contract form (for example A201). Press <b>Add checked documents</b>. These files stay in this browser on this computer, are never sent to AI, and are not part of sync or backup, so keep your originals.</p><p>For each file you choose where it goes: before or after a section, at the front, or at the end. Slate adds bookmarks for everything it merges, keeps your originals untouched, and the table of contents shows the consultant specifications with their page counts.</p><p class="small muted">Why export the PDF first: merging works on the finished PDF so page numbers are final.</p>'],
     ['subs', 'Submittals and coordination', '<h3>Submittals</h3><p>The register is built from the Submittals, Warranty, Mock-up and Closeout articles of every included section. It updates as the specs change. Set a status on each line (Not started to Closed). <b>Download CSV</b> opens in Excel; <b>Copy</b> puts the CSV text on the clipboard.</p><h3>Coordination</h3><p>Findings from checking sections against drawings and finishes, and against each other. Each has a severity: <b>conflict</b> (blocks issuing), <b>gap</b> (review) or note. Mark items done as you resolve them. They appear in the pre-issue check.</p>'],
     ['issue', 'Issuing, presets and restore points', '<h3>Pre-issue check</h3><p>Lists what must be fixed before issuing (sections with no text, unanswered questions, brackets, coordination conflicts) and what to review (status not Final, newer library revisions, open comments, references to sections not in the project).</p><h3>Guided issue</h3><p><b>Start guided issue</b> on Overview or Issue / export walks through three steps: check the set, name the issue and date, then freeze and export Word and/or PDF. You can issue with open items if you tick <b>Issue anyway</b>; they print highlighted.</p><h3>Frozen issues</h3><p>Freezing records the exact text of every section. Later you can use <b>Compare issues</b> to see what changed between two issues, copy an addendum summary, or print it. Issue dates by section appear on the table of contents.</p><h3>Export presets</h3><p>A preset sets whether notes to specifier and the cover and contents pages print. Built in: <b>Review set</b>, <b>Issue set (clean)</b> and <b>Pages only</b>. Set the options you want, then <b>Save current options as a preset</b>. Presets are stored in this browser.</p><h3>Word and PDF</h3><p>Word files are complete and editable, with a cover page, table of contents, headers and footers. PDF uses your browser’s print dialog: choose <b>Save as PDF</b>, and turn off headers and footers in the print options.</p><h3>Restore points</h3><p>A restore point is a full copy of every section. Save one before a risky change. Slate keeps the latest five and saves one automatically each time you issue. Restoring first saves your current state.</p>'],
     ['library', 'Master library and reference projects', '<h3>Master library</h3><p>Your standard text for each section. Every edit raises the revision so projects can pull updates. Statuses run Starter, AI draft, Reviewed, ai3 standard. Each master keeps its history, with compare and restore. <b>Import from manual</b> reads a finished manual and files its sections as masters.</p><h3>Reference projects</h3><p>A private archive of past manuals, searchable from any section with <b>Reference</b>. Import one at a time or in bulk, and tag each with a project type. Slate uses them to draft sections that match how ai3 writes.</p>'],
-    ['settings', 'Settings, firm profile and backup', '<h3>Firm profile</h3><p>Firm name, address, phone, website, registration note, default building code, default contract form, the cover label for project numbers, and your name for comments. New projects start with these, and the firm address prints under the architect on the cover page.</p><h3>Project types</h3><p>Edit the section set for each type, add a type, or let Slate learn a set from your reference projects.</p><h3>Cloud and backup</h3><p>Sign in to sync projects between computers. Sync saves the whole record each time, so the last save wins: do not edit the same project on two computers at once. <b>Download backup</b> saves one file with every project, your library, archive and settings. Slate reminds you after seven days without one (thirty if you are signed in). Consultant PDFs are stored on the computer where you added them and are not part of sync or backup, so keep your originals.</p>'],
+    ['settings', 'Settings, firm profile and backup', '<h3>Firm profile</h3><p>Firm name, address, phone, website, registration note, default building code, default contract form, the cover label for project numbers, and your name for comments. New projects start with these, and the firm address prints under the architect on the cover page.</p><h3>Standard documents</h3><p>Save licensed PDFs such as the AIA General Conditions once, so they are ready to merge into any project.</p><h3>Project types</h3><p>Edit the section set for each type, add a type, or let Slate learn a set from your reference projects.</p><h3>Cloud and backup</h3><p>Sign in to sync projects between computers. Sync saves the whole record each time, so the last save wins: do not edit the same project on two computers at once. <b>Download backup</b> saves one file with every project, your library, archive and settings. Slate reminds you after seven days without one (thirty if you are signed in). Consultant PDFs are stored on the computer where you added them and are not part of sync or backup, so keep your originals.</p>'],
     ['faq', 'Shortcuts and troubleshooting', '<h3>Shortcuts</h3><p><b>Ctrl/Cmd+K</b> or <b>/</b> find in project • <b>Alt+↑ / Alt+↓</b> previous or next section • <b>?</b> help for this tab</p><h3>Common questions</h3><p><b>AI buttons say there is no key.</b> Paste your Anthropic API key in Settings and press Save.</p><p><b>A section shows yellow text in the export.</b> It has an unanswered question or a [bracketed] decision. Open the section and resolve it.</p><p><b>I changed the library but my project did not change.</b> Projects keep their own copy. Open the section and press <b>Library updated — pull latest</b>.</p><p><b>My PDF has browser headers and footers.</b> In the print dialog, open More settings and turn off Headers and footers.</p><p><b>I made a mistake.</b> Try ↶ Undo or History on the section. For larger changes use a restore point, or <b>Undo</b> on a modification.</p><p><b>My work is on another computer.</b> Sign in to sync on both, or move it with a backup file.</p>']
   ];
   var MAP = { overview: 'quick', sections: 'sections', info: 'projects', sources: 'sources', products: 'products', consultants: 'consult', submittals: 'subs', coord: 'subs', export: 'issue', projects: 'projects', library: 'library', archive: 'library', settings: 'settings' };
@@ -1537,4 +1538,378 @@
     if (act === 'selpseudo') { ui.code = el.dataset.k; ui.editText = false; render(); }
     else if (act === 'frontrefresh') frontPreview();
   });
+})();
+
+/* ================= IMPORT A FINISHED MANUAL AS A NEW PROJECT ================= */
+(function () {
+  var pm = { list: [], skipped: [], info: {}, busy: false };
+  var FLD = [['name', 'Project name'], ['number', 'Project number'], ['owner', 'Owner'], ['address', 'Street address'], ['cityState', 'City, State'], ['phase', 'Issue phase'], ['issueDate', 'Issue date'], ['architect', 'Architect of record'], ['cm', 'Construction management'], ['mep', 'MEP engineer'], ['structural', 'Structural engineer'], ['interior', 'Interior designer'], ['code', 'Governing building code'], ['contractForm', 'Contract form']];
+  var INFO_PROMPT = 'Read the COVER PAGE and front matter of this architectural PROJECT MANUAL. Return ONLY a JSON object with these string fields, using "" for anything the pages do not show. Do not guess.\n{"name":"project name","number":"project number","owner":"owner","address":"street address","cityState":"City, ST","phase":"issue name such as Permit Set or Bid Set","issueDate":"date on the cover","architect":"architect of record","cm":"construction manager or general contractor","mep":"MEP engineer","structural":"structural engineer","interior":"interior designer","code":"governing building code if stated","contractForm":"contract form if stated, such as AIA A201-2017"}';
+  function open() {
+    pm = { list: [], skipped: [], info: {}, busy: false };
+    modal('<h2>Import a finished manual as a new project</h2><div class="small muted" style="margin-bottom:10px">Use this when you have already written the specifications. Drop the whole manual as one PDF or Word file, <b>or select all of its Word files at once</b> (one per section, plus the table of contents). Slate reads the project details from the cover or table of contents and creates a project whose sections keep your text exactly as written. You can then finish it, add finishes and consultant sections, and export it. Nothing is saved until you press <b>Create project</b>. About one minute per ' + batchPages() + ' PDF pages. Leave this window open.</div>' +
+      '<label class="dz" data-dz="pm"><span class="dzt">✨ Drop the project manual here (one file, or many section files)</span><span class="dzs">or click to browse and select them all</span><input type="file" id="pmfile" data-pmfile="1" multiple accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="display:none"></label>' +
+      '<div id="prog-manual" class="small" style="margin:10px 0;color:var(--accent-ink)"></div><div id="err-manual" class="small" style="display:none;color:#a33;margin:6px 0"></div><div id="pmreview"></div>' +
+      '<div class="mfoot"><button class="btn" data-act="closemodal">Close</button><button class="btn pri" data-act="pmcreate" id="pmcreate" style="display:none">Create project</button></div>', true);
+  }
+  function review() {
+    var el = $('#pmreview'); if (!el) return; var i = pm.info, nsel = pm.list.length;
+    el.innerHTML = nsel ? '<h3 style="margin:8px 0 6px">Project details found</h3><div class="small muted" style="margin-bottom:6px">Check these. Anything blank can be filled in later on Project info.</div><div class="two">' +
+      FLD.map(function (f) { return '<div class="fld"><label>' + f[1] + '</label><input type="text" id="pm-' + f[0] + '" value="' + esc(i[f[0]] || '') + '"></div>'; }).join('') +
+      '<div class="fld"><label>Project type</label><select id="pm-ptype"><option value="">(not set)</option>' + SS.PTYPES.map(function (t) { return '<option value="' + t + '"' + (i.ptype === t ? ' selected' : '') + '>' + esc(SS.PTYPE_LABELS[t]) + '</option>'; }).join('') + '</select></div></div>' +
+      '<h3 style="margin:12px 0 6px">Sections found (' + nsel + ')</h3><div style="max-height:34vh;overflow:auto;border:1px solid var(--border);border-radius:8px">' +
+      pm.list.map(function (x, k) { var toc = x.code === '01 001'; return '<label class="sec" style="cursor:pointer"><input type="checkbox" data-pmi="' + k + '"' + (toc || x.dup ? '' : ' checked') + '><span class="c">' + esc(x.code) + '</span><span class="t">' + esc(x.title) + '</span><span class="small muted">' + x.body.split('\n').length + ' lines</span>' + (toc ? '<span class="badge n">Slate builds this</span>' : '') + (x.dup ? '<span class="badge r">duplicate number</span>' : '') + (x.file && pm.list.some(function (y) { return y.file !== x.file; }) ? '<span class="small muted">' + esc(x.file) + '</span>' : '') + '</label>'; }).join('') + '</div>' +
+      (pm.skipped.length ? '<div class="small" style="color:#a33;margin-top:6px">Pages the AI could not read: ' + pm.skipped.join(', ') + '. Check these sections after importing.</div>' : '') + ((pm.failed || []).length ? '<div class="small" style="color:#a33;margin-top:6px"><b>Files with problems:</b><br>' + pm.failed.map(esc).join('<br>') + '</div>' : '') + (pm.tocName ? '<div class="small muted" style="margin-top:6px">“' + esc(pm.tocName) + '” was used for the project details. Slate rebuilds the table of contents.</div>' : '') +
+      '<div class="small muted" style="margin-top:8px">The cover page and table of contents are rebuilt from the project details. Consultant specifications and attachments inside the PDF are not read as sections. Add them on the Consultants tab, or merge them from Issue / export.</div>' : '';
+    var b = $('#pmcreate'); if (b) b.style.display = nsel ? '' : 'none';
+  }
+  var TOC_RE = /table\s*of\s*contents|\btoc\b|^\s*(00|01)\s?0?01\b|contents/i, COVER_RE = /cover|title\s*page|front/i;
+  function codeFromName(n) { var m = n.match(/(?:^|[^0-9])(\d{2})[\s._-]?(\d{3}|\d{2}[\s._-]?\d{2})(?!\d)/); return m ? m[1] + ' ' + m[2].replace(/[\s._-]/g, '') : ''; }
+  async function infoFrom(f) {
+    var ext = (f.name.split('.').pop() || '').toLowerCase(), buf = await readBuf(f), info = {};
+    try {
+      var raw;
+      if (ext === 'docx') raw = await ai(INFO_PROMPT + '\n\nTEXT:\n' + docxText(buf).slice(0, 6000), 2000);
+      else { var pdf = await openPdf(buf), bytes = pdf.build ? await pdf.build(0, Math.min(4, pdf.n)) : pdf.whole; raw = (await aiFull([{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64(bytes) } }, { type: 'text', text: INFO_PROMPT }], 2000)).text; }
+      var o = parseJson(raw) || {}; FLD.forEach(function (x) { info[x[0]] = str(o[x[0]]).trim(); });
+    } catch (e) { info = {}; }
+    return info;
+  }
+  async function readSections(work, many) {
+  var results = new Array(work.length), done = 0, failed = [], skipped = [], next = 0;
+  async function worker() {
+    while (next < work.length) {
+      var i = next++, f = work[i];
+      try {
+        setProg('manual', (many ? 'Reading section files: ' + done + ' of ' + work.length + ' done. Now: ' : 'Reading ') + f.name + '…');
+        var got = await extractManual(f, refPrompt), hint = codeFromName(f.name);
+        results[i] = got.list.map(function (x) { x.file = f.name; if (!x.code && hint) x.code = hint; return x; }).filter(function (x) { return x.code; });
+        if (!results[i].length) failed.push(f.name + ': no specification section found');
+        (got.skipped || []).forEach(function (k) { skipped.push(many ? f.name + ' p.' + k : k); });
+      } catch (err) { results[i] = []; failed.push(f.name + ': ' + (err && err.message || err)); }
+      done++;
+    }
+  }
+  await Promise.all([worker(), worker(), worker()].slice(0, Math.min(3, work.length)));
+  var list = [], seen = {};
+  results.forEach(function (r) { (r || []).forEach(function (x) { x.dup = !!seen[x.code]; seen[x.code] = true; list.push(x); }); });
+  list.sort(function (a, b) { return SS.sortCodes(a.code, b.code); });
+    return { list: list, failed: failed, skipped: skipped };
+  }
+  async function run(files) {
+    files = files.slice().sort(function (a, b) { return a.name.localeCompare(b.name, undefined, { numeric: true }); });
+    var many = files.length > 1, tocF = many ? files.filter(function (f) { return TOC_RE.test(f.name.replace(/\.[^.]+$/, '')); })[0] : null, covF = many ? files.filter(function (f) { return COVER_RE.test(f.name); })[0] : null;
+    var srcF = covF || tocF || files[0], work = files.filter(function (f) { return f !== tocF && f !== covF; });
+    setProg('manual', 'Reading the project details from ' + srcF.name + '…');
+    var info = await infoFrom(srcF); if (!info.name && many && srcF !== files[0]) info = Object.assign(await infoFrom(files[0]), info);
+    if (!info.name) info.name = (many ? '' : srcF.name.replace(/\.[^.]+$/, '')).replace(/[_\-]+/g, ' ').replace(/project manual/i, '').trim();
+    info.ptype = guessType(info.name || '');
+    var rs = await readSections(work, many), list = rs.list, failed = rs.failed, skipped = rs.skipped;
+    pm.info = info; pm.list = list; pm.skipped = skipped; pm.failed = failed; pm.tocName = tocF ? tocF.name : '';
+    setProg('manual', list.length ? 'Done: ' + list.length + ' sections found' + (failed.length ? ', ' + failed.length + ' file' + (failed.length > 1 ? 's' : '') + ' with problems' : '') + '. Review below, then create the project.' : 'No specification sections were found.');
+    review();
+  }
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (!t || !t.dataset || !t.dataset.pmfile || !t.files.length) return;
+    var fs = [].slice.call(t.files); t.value = ''; pm.list = []; pm.skipped = []; pm.failed = []; review(); setErr('manual', '');
+    withBusy('pmimport', null, async function () { try { await run(fs); } catch (err) { setProg('manual', ''); setErr('manual', String(err && err.message || err)); throw err; } })();
+  });
+  function create() {
+    var np = { id: SS.uid(), created: Date.now(), sections: [], notes: '' };
+    FLD.forEach(function (f) { np[f[0]] = ($('#pm-' + f[0]).value || '').trim(); }); np.ptype = $('#pm-ptype').value;
+    if (!np.name) return toast('Give the project a name.');
+    np.architect = np.architect || settings.architect || 'ai3, Inc.';
+    [].forEach.call(document.querySelectorAll('[data-pmi]'), function (c) {
+      if (!c.checked) return; var x = pm.list[+c.dataset.pmi], ns = newSection(x.code, x.title);
+      ns.title = x.title || ns.title; ns.body = x.body; ns.questions = []; ns.answers = {}; ns.libRev = (library[x.code] && library[x.code].rev) || 0; np.sections.push(ns);
+    });
+    if (!np.sections.length) return toast('Tick at least one section.');
+    np.sections.sort(function (a, b) { return SS.sortCodes(a.code, b.code); });
+    projects.unshift(np); saveProjects(); closeModal(); ui.view = 'project'; ui.pid = np.id; ui.tab = 'overview'; ui.code = np.sections[0].code; render();
+    toast(np.sections.length + ' sections imported as written. Review the project details next.', 6000);
+  }
+
+  /* ----- add sections from files to the open project ----- */
+  var ad = { list: [], failed: [] };
+  function openAdd() {
+    ad = { list: [], failed: [] };
+    modal('<h2>Import sections from files</h2><div class="small muted" style="margin-bottom:10px">Select the Word or PDF files for the sections you want to add to this project. Slate keeps your text exactly as written. A file named like “Table of Contents” is skipped. Nothing changes until you press <b>Add to project</b>.</div>' +
+      '<label class="dz" data-dz="pm"><span class="dzt">✨ Drop section files here (select as many as you like)</span><span class="dzs">or click to browse</span><input type="file" id="pmfile" data-pmadd="1" multiple accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="display:none"></label>' +
+      '<div id="prog-manual" class="small" style="margin:10px 0;color:var(--accent-ink)"></div><div id="err-manual" class="small" style="display:none;color:#a33;margin:6px 0"></div><div id="pmreview"></div>' +
+      '<div class="mfoot"><button class="btn" data-act="closemodal">Close</button><button class="btn pri" data-act="pmaddgo" id="pmaddgo" style="display:none">Add to project</button></div>', true);
+  }
+  function reviewAdd() {
+    var el = $('#pmreview'), p = proj(); if (!el) return;
+    el.innerHTML = ad.list.length ? '<h3 style="margin:8px 0 6px">Sections found (' + ad.list.length + ')</h3><div style="max-height:40vh;overflow:auto;border:1px solid var(--border);border-radius:8px">' + ad.list.map(function (x, k) {
+      var ex = p.sections.some(function (s) { return s.code === x.code; });
+      return '<label class="sec" style="cursor:pointer"><input type="checkbox" data-pmi="' + k + '"' + (ex || x.dup ? '' : ' checked') + '><span class="c">' + esc(x.code) + '</span><span class="t">' + esc(x.title) + '</span>' + (ex ? '<span class="badge r">already in project: replaces its text</span>' : '<span class="badge g">new</span>') + (x.dup ? '<span class="badge r">duplicate number</span>' : '') + '<span class="small muted">' + esc(x.file || '') + '</span></label>';
+    }).join('') + '</div><div class="small muted" style="margin-top:6px">Sections that are already in the project are left unticked. Tick one to replace its text; the old text stays in that section’s History.</div>' : '';
+    if (ad.failed.length) el.innerHTML += '<div class="small" style="color:#a33;margin-top:6px"><b>Files with problems:</b><br>' + ad.failed.map(esc).join('<br>') + '</div>';
+    var b = $('#pmaddgo'); if (b) b.style.display = ad.list.length ? '' : 'none';
+  }
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (!t || !t.dataset || !t.dataset.pmadd || !t.files.length) return;
+    var fs = [].slice.call(t.files).filter(function (f) { return !TOC_RE.test(f.name.replace(/\.[^.]+$/, '')); }); t.value = ''; ad = { list: [], failed: [] }; reviewAdd(); setErr('manual', '');
+    if (!fs.length) return setProg('manual', 'Those files look like tables of contents. Slate builds that itself.');
+    withBusy('pmadd', null, async function () {
+      try {
+        fs.sort(function (a, b) { return a.name.localeCompare(b.name, undefined, { numeric: true }); });
+        var rs = await readSections(fs, fs.length > 1); ad = { list: rs.list, failed: rs.failed.concat(rs.skipped.length ? ['Pages the AI could not read: ' + rs.skipped.join(', ')] : []) };
+        setProg('manual', ad.list.length ? 'Done: ' + ad.list.length + ' section' + (ad.list.length > 1 ? 's' : '') + ' found. Review below.' : 'No specification sections were found.'); reviewAdd();
+      } catch (err) { setProg('manual', ''); setErr('manual', String(err && err.message || err)); throw err; }
+    })();
+  });
+  function addGo() {
+    var p = proj(), n = 0, r = 0;
+    [].forEach.call(document.querySelectorAll('[data-pmi]'), function (c) {
+      if (!c.checked) return; var x = ad.list[+c.dataset.pmi], ex = p.sections.filter(function (s) { return s.code === x.code; })[0];
+      if (ex) { ex.title = x.title || ex.title; ex.body = x.body; ex.questions = []; ex.answers = {}; ex.on = true; ex.status = 'draft'; r++; }
+      else { var ns = newSection(x.code, x.title); ns.title = x.title || ns.title; ns.body = x.body; ns.questions = []; ns.answers = {}; ns.libRev = (library[x.code] && library[x.code].rev) || 0; p.sections.push(ns); n++; }
+    });
+    if (!n && !r) return toast('Tick at least one section.');
+    p.sections.sort(function (a, b) { return SS.sortCodes(a.code, b.code); }); saveProjects(); closeModal(); ui.tab = 'sections'; render();
+    toast(n + ' added' + (r ? ', ' + r + ' replaced' : '') + '.', 5000);
+  }
+  var vs3 = viewSections;
+  viewSections = function (p) { return vs3(p).replace('<div style="padding:6px 8px"><input type="text" data-secq', '<div style="padding:6px 8px 0"><button class="btn sm" data-act="pmaddopen" style="width:100%" title="Add sections from Word or PDF files">Import sections from files…</button></div><div style="padding:6px 8px"><input type="text" data-secq'); };
+  document.addEventListener('click', function (e) { var el = e.target.closest('[data-act]'); if (!el) return; if (el.dataset.act === 'pmaddopen') openAdd(); else if (el.dataset.act === 'pmaddgo') addGo(); });
+  var vp1 = viewProjects;
+  viewProjects = function () { return vp1().replace('<button class="btn pri" data-act="newproj">', '<button class="btn" data-act="pmopen" title="Create a project from a manual you have already written">Import a manual…</button><button class="btn pri" data-act="newproj">'); };
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act;
+    if (act === 'pmopen') open(); else if (act === 'pmcreate') create();
+  });
+})();
+
+/* ================= STANDARD DOCUMENTS (AIA General Conditions and other licensed PDFs, saved once) ================= */
+(function () {
+  var KEY = 'ss1_stddocs';
+  function list() { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } }
+  function save(l) { localStorage.setItem(KEY, JSON.stringify(l)); }
+  function guessLabel(n) { return n.replace(/\.pdf$/i, '').replace(/[_]+/g, ' ').trim(); }
+  window.stdAdd = async function (files) {
+    var l = list(), n = 0;
+    for (var i = 0; i < files.length; i++) {
+      var f = files[i]; if (!/\.pdf$/i.test(f.name)) { toast(f.name + ' is not a PDF.'); continue; }
+      if (l.some(function (d) { return d.name === f.name && d.size === f.size; })) { toast(f.name + ' is already saved.'); continue; }
+      var id = SS.uid(); try { await window.__fs.put('std_' + id, f); } catch (e) { toast('⚠ Could not store ' + f.name + ' in this browser.'); continue; }
+      l.push({ id: id, name: f.name, label: guessLabel(f.name), size: f.size, at: Date.now(), def: false, url: '' }); n++;
+    }
+    save(l); if (n) { toast(n + ' document' + (n > 1 ? 's' : '') + ' saved'); render(); }
+  };
+  function mb(x) { return (x / 1048576).toFixed(1) + ' MB'; }
+  function panel() {
+    var l = list();
+    return '<div class="panel"><h2>Standard documents</h2><div class="small muted" style="margin-bottom:8px">Save your licensed AIA forms (A201 General Conditions, A101 Agreement and others) once. They are ready to add to any project’s merged PDF. Files stay in this browser on this computer: they are not uploaded, not sent to AI, and not part of cloud sync or backup, so keep your original copies.</div>' +
+      (l.length ? '<table class="tbl"><tr><th>Name in the manual</th><th>Where to get it (link)</th><th>Add by default</th><th></th></tr>' + l.map(function (d, i) { return '<tr><td><input type="text" data-sdlabel="' + i + '" value="' + esc(d.label) + '" style="width:100%;padding:4px 6px"><div class="small muted">' + esc(d.name) + ' • ' + mb(d.size) + '</div></td><td><input type="text" data-sdurl="' + i + '" value="' + esc(d.url || '') + '" placeholder="https://…" style="width:100%;padding:4px 6px">' + (d.url ? '<a class="small" href="' + esc(d.url) + '" target="_blank" rel="noopener">Open</a>' : '') + '</td><td style="text-align:center"><input type="checkbox" data-sddef="' + i + '"' + (d.def ? ' checked' : '') + '></td><td><button class="btn sm danger" data-act="sddel" data-i="' + i + '">✕</button></td></tr>'; }).join('') + '</table>' : '<div class="small muted" style="margin-bottom:8px">None saved yet.</div>') +
+      '<label class="dz" data-dz="std" style="margin-top:10px"><span class="dzt">✨ Drop AIA forms or other PDFs here</span><span class="dzs">or click to browse</span><input type="file" multiple accept=".pdf,application/pdf" id="stdfile" data-stdfile="1" style="display:none"></label></div>';
+  }
+  var vs2 = viewSettings;
+  viewSettings = function () { return vs2().replace('<div class="panel"><h2>Cloud &amp; backup</h2>', panel() + '<div class="panel"><h2>Cloud &amp; backup</h2>'); };
+  function pre(p, d) { var cf = ((p && p.contractForm) || '').toLowerCase().replace(/[^a-z0-9]/g, ''), key = (d.label + ' ' + d.name).toLowerCase().replace(/[^a-z0-9]+/g, ' '); var m = key.match(/\b[a-z]\d{3}\b/); return d.def || (m && cf && cf.indexOf(m[0]) >= 0); }
+  window.stdPickHtml = function (p) {
+    var l = list();
+    if (!l.length) return '<div class="small muted" style="margin-top:8px">Tip: save your AIA General Conditions once under Settings → Standard documents and they will be listed here for every project.</div>';
+    return '<div style="margin-top:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px"><div class="small" style="margin-bottom:4px"><b>Your standard documents</b></div>' + l.map(function (d) { return '<label class="small" style="display:block;padding:2px 0"><input type="checkbox" data-stdpick="' + d.id + '"' + (pre(p, d) ? ' checked' : '') + '> ' + esc(d.label) + (d.url ? ' <a href="' + esc(d.url) + '" target="_blank" rel="noopener">link</a>' : '') + '</label>'; }).join('') + '<button class="btn sm" data-act="sdpickadd" style="margin-top:6px">Add checked documents</button></div>';
+  };
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (!t || !t.dataset) return;
+    if (t.dataset.stdfile) { var fs = [].slice.call(t.files); t.value = ''; window.stdAdd(fs); return; }
+    var l = list(), k;
+    if (t.dataset.sdlabel !== undefined) { k = +t.dataset.sdlabel; if (l[k]) { l[k].label = t.value.trim() || l[k].label; save(l); } }
+    else if (t.dataset.sdurl !== undefined) { k = +t.dataset.sdurl; if (l[k]) { l[k].url = t.value.trim(); save(l); render(); } }
+    else if (t.dataset.sddef !== undefined) { k = +t.dataset.sddef; if (l[k]) { l[k].def = t.checked; save(l); } }
+  });
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act;
+    if (act === 'sddel') { var l = list(), d = l[+el.dataset.i]; if (d && confirm('Remove “' + d.label + '” from your standard documents? Your original file is not affected.')) { window.__fs.del('std_' + d.id); l.splice(+el.dataset.i, 1); save(l); render(); } }
+    else if (act === 'sdpickadd') {
+      var ids = [].map.call(document.querySelectorAll('[data-stdpick]:checked'), function (c) { return c.dataset.stdpick; }), l2 = list(); if (!ids.length) return toast('Tick the documents to add.');
+      Promise.all(ids.map(function (id) { var d = l2.filter(function (x) { return x.id === id; })[0]; return window.__fs.get('std_' + id).then(function (b) { if (!b) throw new Error('“' + d.label + '” is missing from this browser. Add it again in Settings.'); var f = new File([b], d.name, { type: 'application/pdf' }); f.__label = d.label; return f; }); })).then(function (files) { window.mgAdd(files); }, function (err) { toast('⚠ ' + err.message, 6000); });
+    }
+  });
+})();
+
+
+/* ================= VERSION LABEL ================= */
+(function () {
+  var V = '3.15';
+  window.SS_VERSION = V;
+  var h0 = window.viewHelp, vs9 = viewSettings;
+  window.viewHelp = function () { return h0().replace('How to use Slate Specs, from the first project to issuing the set.', 'How to use Slate Specs, from the first project to issuing the set. <span class="small">You are running version ' + V + '.</span>'); };
+  viewSettings = function () { return vs9().replace('<div class="panel"><h2>Firm profile</h2>', '<div class="small muted" style="margin-bottom:8px">Slate Specs version ' + V + '</div><div class="panel"><h2>Firm profile</h2>'); };
+})();
+
+
+/* ================= RUNNING HEADER/FOOTER IN SECTION PREVIEW ================= */
+(function () {
+  var rp0 = refreshPreview;
+  refreshPreview = function () {
+    rp0.apply(this, arguments);
+    try {
+      var pv = $('#preview'), p = proj(), s = curSec(); if (!pv || !p || !s) return;
+      var sec = pv.querySelector('.sp-sec'); if (!sec || pv.querySelector('.rhf')) return;
+      var title = (s.title || '').toUpperCase(), code = 'SECTION ' + s.code, st = p.phase || '', dt = p.issueDate || '', loc = p.cityState || '';
+      var c = 'font:8.5pt/1.35 \'Century Gothic\',Questrial,Arial,sans-serif;color:#222;';
+      var hd = '<div class="rhf" style="' + c + 'display:flex;justify-content:space-between;padding:4px 0 14px;margin-bottom:6px;border-bottom:1px solid #ddd;position:sticky;top:-44px;background:#fff;z-index:2"><div style="flex:1"></div><div style="flex:2;text-align:center">' + esc(title) + '<br>' + esc(code) + '</div><div style="flex:1;text-align:right">' + (st ? esc(st) : '<span style="color:#aaa">[Phase]</span>') + '<br>' + (dt ? esc(dt) : '<span style="color:#aaa">[Issue date]</span>') + '</div></div>';
+      var ft = '<div class="rhf" style="' + c + 'font-size:8pt;text-align:right;padding:10px 0 4px;margin-top:14px;border-top:1px solid #ddd;position:sticky;bottom:-16px;background:#fff;z-index:2">' + esc((p.name || '').toUpperCase()) + (loc ? '<br>' + esc(loc) : '') + '<br>' + esc(s.code) + '-1</div>';
+      sec.insertAdjacentHTML('beforebegin', hd); sec.insertAdjacentHTML('afterend', ft);
+    } catch (e) { /* preview only */ }
+  };
+})();
+
+
+/* ================= EMBEDDED QUESTRIAL (Century Gothic look-alike) ================= */
+(function () { try { var st = document.createElement('style'); st.id = 'qfont'; st.textContent = SS.FONTFACE; document.head.appendChild(st); } catch (e) {} })();
+
+
+/* ================= REUSE: copy sections from another project OR a reference project ================= */
+(function () {
+  var st = { src: '', q: '' };
+  function sources(p) {
+    var live = projects.filter(function (x) { return x.id !== p.id && x.sections.some(function (q) { return (q.body || '').trim(); }); });
+    return { live: live, ref: archive.filter(function (a) { return a.sections && a.sections.length; }) };
+  }
+  function secsOf(src) {
+    if (!src) return [];
+    if (src.kind === 'p') { var x = projects.filter(function (y) { return y.id === src.id; })[0]; return x ? x.sections.filter(function (q) { return (q.body || '').trim(); }) : []; }
+    var a = archById(src.id); return a ? a.sections.filter(function (q) { return (q.body || '').trim(); }) : [];
+  }
+  function parse(v) { return v ? { kind: v.charAt(0), id: v.slice(2) } : null; }
+  function open(keep) {
+    var p = proj(), S = sources(p);
+    if (!S.live.length && !S.ref.length) return toast('No other projects or reference projects with sections yet.');
+    if (!st.src || !(S.live.some(function (x) { return 'p:' + x.id === st.src; }) || S.ref.some(function (x) { return 'a:' + x.id === st.src; }))) st.src = S.live.length ? 'p:' + S.live[0].id : 'a:' + S.ref[0].id;
+    var src = parse(st.src), isRef = src.kind === 'a', q = st.q.trim().toLowerCase();
+    var list = secsOf(src).filter(function (x) { return !q || (x.code + ' ' + x.title + ' ' + x.body).toLowerCase().indexOf(q) >= 0; });
+    var opts = (S.live.length ? '<optgroup label="Your projects">' + S.live.map(function (x) { return '<option value="p:' + x.id + '"' + ('p:' + x.id === st.src ? ' selected' : '') + '>' + esc(x.name || 'Untitled') + '</option>'; }).join('') + '</optgroup>' : '') +
+      (S.ref.length ? '<optgroup label="Reference projects">' + S.ref.map(function (x) { return '<option value="a:' + x.id + '"' + ('a:' + x.id === st.src ? ' selected' : '') + '>' + esc(x.name || 'Untitled') + '</option>'; }).join('') + '</optgroup>' : '');
+    var rows = list.map(function (x) {
+      var have = p.sections.some(function (y) { return y.code === x.code; });
+      return '<label class="sec" style="cursor:pointer"><input type="checkbox" data-ruse="' + esc(x.code) + '"><span class="c">' + esc(x.code) + '</span><span class="t">' + esc(x.title) + '</span>' + (have ? '<span class="badge">replaces</span>' : '<span class="badge g">new</span>') + '</label>';
+    }).join('') || '<div class="empty">No sections match.</div>';
+    var h = '<h2>Copy sections into this project</h2><div class="fld"><label>Copy from</label><select data-ruse-src>' + opts + '</select></div>' +
+      '<div class="row" style="margin-bottom:6px"><input type="text" id="rusq" value="' + esc(st.q) + '" style="flex:1;padding:8px 12px;border-radius:999px" placeholder="Search by section number, title or wording"><button class="btn sm" data-act="rusall">Select all shown</button></div>' +
+      '<div id="rusrows" style="max-height:44vh;overflow:auto">' + rows + '</div>' +
+      (isRef ? '<div class="small muted" style="margin-top:8px">Reference projects keep the text as written. Fill in the project-specific answers after copying.</div>' : '<div class="small" style="margin-top:8px"><label><input type="checkbox" id="rusans" checked> Copy answers and notes too (otherwise answers start blank)</label></div>') +
+      '<div class="mfoot"><button class="btn" data-act="closemodal">Cancel</button><button class="btn pri" data-act="rusgo">Copy selected</button></div>';
+    modal(h);
+    if (keep) { var qi = $('#rusq'); if (qi) { qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); } }
+  }
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]'); if (!el) return; var act = el.dataset.act;
+    if (act === 'reuse') { e.stopImmediatePropagation(); st.q = ''; open(); }
+    else if (act === 'rusall') { [].forEach.call(document.querySelectorAll('[data-ruse]'), function (c) { c.checked = true; }); }
+    else if (act === 'rusgo') {
+      var p = proj(), src = parse(st.src), n = 0, keep = $('#rusans') ? $('#rusans').checked : true;
+      [].forEach.call(document.querySelectorAll('[data-ruse]:checked'), function (c) {
+        var o = secsOf(src).filter(function (x) { return x.code === c.dataset.ruse; })[0]; if (!o) return;
+        if (src.kind === 'p') {
+          var nu = clone(o); nu.on = true; nu.status = 'draft'; if (!keep) { nu.answers = {}; nu.aiKeys = []; nu.notes = ''; }
+          var i = p.sections.findIndex(function (x) { return x.code === nu.code; }); if (i >= 0) p.sections[i] = nu; else p.sections.push(nu);
+        } else {
+          var ex = p.sections.filter(function (x) { return x.code === o.code; })[0];
+          if (ex) { ex.body = o.body; ex.on = true; ex.status = 'draft'; }
+          else { var ns = newSection(o.code, o.title); ns.title = o.title; ns.body = o.body; ns.questions = []; ns.libRev = 0; p.sections.push(ns); }
+        }
+        n++;
+      });
+      if (!n) return toast('Tick at least one section.');
+      p.sections.sort(function (a, b) { return SS.sortCodes(a.code, b.code); }); saveProjects(); closeModal(); render(); toast('Copied ' + n + ' section' + (n === 1 ? '' : 's'));
+    }
+  }, true);
+  document.addEventListener('change', function (e) { if (e.target.dataset.ruseSrc !== undefined) { st.src = e.target.value; open(); } });
+  document.addEventListener('input', function (e) { if (e.target.id === 'rusq') { st.q = e.target.value; open(true); } });
+})();
+
+
+/* ================= LIVE EDIT IN THE SECTION PREVIEW ================= */
+(function () {
+  var rp1 = refreshPreview;
+  function norm(t) { return String(t || '').replace(/\s+/g, ' ').trim(); }
+  function items(r) {
+    var L = [];
+    r.parts.forEach(function (pt) { L.push({ k: 'part', src: pt.src, title: pt.title });
+      pt.articles.forEach(function (ar) { L.push({ k: 'art', src: ar.src, title: ar.title });
+        ar.paras.forEach(function (pa) { L.push(pa.note ? { k: 'note' } : { k: 'p', src: pa.src, pa: pa }); }); }); });
+    return L;
+  }
+  function rawMap(body) {
+    var M = {}; SS.parseBody(body).forEach(function (pt) {
+      if (pt.src != null) M[pt.src] = { k: 'part', t: pt.title };
+      pt.articles.forEach(function (ar) { if (ar.src != null) M[ar.src] = { k: 'art', t: ar.title, cond: ar.cond };
+        ar.paras.forEach(function (pa) { M[pa.src] = { k: 'p', t: pa.t, cond: pa.cond, cont: pa.cont, l: pa.l, note: pa.note }; }); });
+    }); return M;
+  }
+  function mark(el, it, raw) { el.setAttribute('contenteditable', 'true'); el.setAttribute('spellcheck', 'true'); el.dataset.lsrc = it.src; el.classList.add('lve'); }
+  refreshPreview = function () {
+    rp1.apply(this, arguments);
+    try {
+      var pv = $('#preview'), p = proj(), s = curSec(); if (!pv || !p || !s || !s.body.trim()) return;
+      var sec = pv.querySelector('.sp-sec'); if (!sec) return;
+      if (!document.getElementById('lvecss')) { var c = document.createElement('style'); c.id = 'lvecss'; c.textContent = '.lve{outline:none;border-radius:3px;cursor:text}.lve:hover{background:rgba(255,230,120,.28)}.lve:focus{background:#fffbe0;box-shadow:0 0 0 2px #e6c84a}.lve.dyn:focus{box-shadow:0 0 0 2px #7aa7ff;background:#eef4ff}.lvehint{font:11px/1.4 inherit;color:#8a8a8a;margin:0 0 8px;text-align:center}'; document.head.appendChild(c); }
+      var its = items(SS.render(s, p, { notes: !!ui.notes })), M = rawMap(s.body);
+      var els = sec.querySelectorAll('.sp-part,.sp-art,.sp-p,.sp-note');
+      if (els.length !== its.length) return;
+      [].forEach.call(els, function (el, i) {
+        var it = its[i]; if (it.k === 'note' || it.src == null) return; var raw = M[it.src]; if (!raw) return;
+        if (it.k === 'p') { var t = el.querySelector('.sp-t'); if (!t) return; mark(t, it); t.dataset.kind = 'p'; t.dataset.rendered = norm(t.textContent); if (norm(raw.t) !== t.dataset.rendered) { t.classList.add('dyn'); t.title = 'This paragraph contains project fields or options. Click to edit the underlying text.'; } }
+        else if (it.k === 'art') { var a = el.querySelector('.sp-at'); if (!a) return; mark(a, it); a.dataset.kind = 'art'; a.dataset.rendered = norm(a.textContent); if (norm(raw.t) !== a.dataset.rendered) a.classList.add('dyn'); }
+        else if (it.k === 'part') { var m = /^(PART \d+ - )(.*)$/.exec(el.textContent); if (!m) return; el.innerHTML = '<span>' + esc(m[1]) + '</span><span class="pt">' + esc(m[2]) + '</span>'; var pt = el.querySelector('.pt'); mark(pt, it); pt.dataset.kind = 'part'; pt.dataset.rendered = norm(m[2]); }
+      });
+      if (!pv.parentNode.querySelector('.lvehint')) pv.insertAdjacentHTML('beforebegin', '<div class="lvehint">Click any text to edit it here. Enter saves, Esc cancels.</div>');
+    } catch (e) { /* preview only */ }
+  };
+  var orig = null;
+  document.addEventListener('focusin', function (e) {
+    var t = e.target; if (!t.classList || !t.classList.contains('lve')) return;
+    var s = curSec(), M = rawMap(s.body), raw = M[t.dataset.lsrc]; if (!raw) return;
+    orig = { el: t, text: t.textContent };
+    if (t.classList.contains('dyn')) { t.textContent = raw.t; try { var rg = document.createRange(); rg.selectNodeContents(t); rg.collapse(false); var sl = window.getSelection(); sl.removeAllRanges(); sl.addRange(rg); } catch (e) {} }
+    t.dataset.start = norm(t.textContent);
+  });
+  function commit(t, cancel) {
+    var s = curSec(), p = proj(); if (!s || !t || !t.classList.contains('lve')) return;
+    var val = norm(t.textContent);
+    if (cancel || val === t.dataset.start) { refreshPreview(); return; }
+    var lines = s.body.split(/\r?\n/), i = +t.dataset.lsrc, M = rawMap(s.body), raw = M[i]; if (!raw || lines[i] == null) { refreshPreview(); return; }
+    if (!val) { toast('Empty text not saved. Use Edit section text to delete lines.'); refreshPreview(); return; }
+    if (t.dataset.kind === 'p') {
+      var m = /^([1-4NnS]):\s?/.exec(lines[i]), cond = raw.cond ? ' ?(' + raw.cond + ')' : '';
+      lines[i] = (m ? m[1] + ': ' : '1: ') + val + cond;
+      (raw.cont || []).slice().sort(function (a, b) { return b - a; }).forEach(function (ci) { lines.splice(ci, 1); });
+    } else if (t.dataset.kind === 'art') { lines[i] = '## ' + val + (raw.cond ? ' ?(' + raw.cond + ')' : ''); }
+    else if (t.dataset.kind === 'part') { lines[i] = '# ' + val; }
+    s.body = lines.join('\n'); saveProjects();
+    var ta = document.querySelector('[data-body]'); if (ta) ta.value = s.body;
+    refreshPreview(); toast('Saved');
+  }
+  document.addEventListener('focusout', function (e) { var t = e.target; if (t.classList && t.classList.contains('lve') && document.body.contains(t)) commit(t, false); });
+  document.addEventListener('keydown', function (e) {
+    var t = e.target; if (!t.classList || !t.classList.contains('lve')) return;
+    if (e.key === 'Enter') { e.preventDefault(); t.blur(); }
+    else if (e.key === 'Escape') { e.preventDefault(); t.textContent = orig ? orig.text : t.textContent; t.dataset.start = norm(t.textContent); t.blur(); }
+  });
+  document.addEventListener('paste', function (e) { var t = e.target; if (t.classList && t.classList.contains('lve')) { e.preventDefault(); var x = (e.clipboardData || window.clipboardData).getData('text').replace(/\s+/g, ' '); document.execCommand('insertText', false, x); } });
+})();
+
+
+/* ================= MARK ALL SECTIONS FINAL ================= */
+(function () {
+  var vs = viewSections;
+  viewSections = function (p) {
+    var h = vs.apply(this, arguments);
+    return h.replace('<button class="btn sm" data-act="reuse"', '<button class="btn sm" data-act="allfinal" title="Mark every included section final">All final</button><button class="btn sm" data-act="reuse"');
+  };
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act="allfinal"]'); if (!el) return; e.stopImmediatePropagation();
+    var p = proj(); if (!p) return;
+    var inc = p.sections.filter(function (s) { return s.on !== false && (s.body || '').trim(); });
+    var todo = inc.filter(function (s) { return s.status !== 'final'; });
+    if (!inc.length) return toast('No included sections with text.');
+    if (!todo.length) { if (confirm('All ' + inc.length + ' included sections are already final. Set them all back to Draft?')) { inc.forEach(function (s) { s.status = 'draft'; }); saveProjects(); render(); toast('All sections set to Draft'); } return; }
+    var open = todo.filter(function (s) { return SS.render(s, p, {}).unresolved > 0; }).length;
+    if (!confirm('Mark ' + todo.length + ' section' + (todo.length === 1 ? '' : 's') + ' final?' + (open ? '\n\n' + open + ' still ha' + (open === 1 ? 's' : 've') + ' open items (blank answers). You can still mark them final, and the pre-issue check will list them.' : '') + '\n\nOnly included sections with text change. Undo or each section\'s status menu reverses it.')) return;
+    todo.forEach(function (s) { s.status = 'final'; }); saveProjects(); render(); toast(todo.length + ' section' + (todo.length === 1 ? '' : 's') + ' marked final');
+  }, true);
 })();

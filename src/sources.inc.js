@@ -322,6 +322,8 @@
     if (z.dataset.dz === 'prod') { if (e.dataTransfer.files.length) prodAdd([].slice.call(e.dataTransfer.files)); return; }
     if (z.dataset.dz === 'mod') { if (e.dataTransfer.files.length) modAdd(e.dataTransfer.files[0]); return; }
     if (z.dataset.dz === 'bulk') { var bi = document.getElementById('bulkfile'); if (bi && e.dataTransfer.files.length) { bulkAdd([].slice.call(e.dataTransfer.files)); } return; }
+    if (z.dataset.dz === 'pm') { var pmi = document.getElementById('pmfile'); if (pmi && e.dataTransfer.files.length) { pmi.files = e.dataTransfer.files; pmi.dispatchEvent(new Event('change', { bubbles: true })); } return; }
+    if (z.dataset.dz === 'std') { if (e.dataTransfer.files.length && window.stdAdd) window.stdAdd([].slice.call(e.dataTransfer.files)); return; }
     if (z.dataset.dz === 'manual') { var inp = document.getElementById('impfile'); if (inp && e.dataTransfer.files.length) { inp.files = e.dataTransfer.files; inp.dispatchEvent(new Event('change', { bubbles: true })); } return; }
     startUpload(z.dataset.dz, [].slice.call(e.dataTransfer.files || []));
   });

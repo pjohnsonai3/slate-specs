@@ -181,6 +181,7 @@ console.log('[ai3] Supabase library:', window.__SB_DIAG);
   var ANY_RE = /\s*\?\(([^)]*)\)\s*/;
   function takeCond(s) { var m = ANY_RE.exec(s); if (!m) return [s, '']; return [(s.slice(0, m.index) + ' ' + s.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim(), m[1]]; }
 
+  SS.takeCond = takeCond;
   SS.parseBody = function (text) {
     var parts = [], part = null, art = null;
     function needPart() { if (!part) { part = { title: '', articles: [] }; parts.push(part); } }
@@ -4110,7 +4111,7 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
 
 /* ================= VERSION LABEL ================= */
 (function () {
-  var V = '3.13';
+  var V = '3.15';
   window.SS_VERSION = V;
   var h0 = window.viewHelp, vs9 = viewSettings;
   window.viewHelp = function () { return h0().replace('How to use Slate Specs, from the first project to issuing the set.', 'How to use Slate Specs, from the first project to issuing the set. <span class="small">You are running version ' + V + '.</span>'); };
@@ -4197,6 +4198,98 @@ N: Define shaft-wall hour rating in the project shaft schedule and engage the st
   }, true);
   document.addEventListener('change', function (e) { if (e.target.dataset.ruseSrc !== undefined) { st.src = e.target.value; open(); } });
   document.addEventListener('input', function (e) { if (e.target.id === 'rusq') { st.q = e.target.value; open(true); } });
+})();
+
+
+/* ================= LIVE EDIT IN THE SECTION PREVIEW ================= */
+(function () {
+  var rp1 = refreshPreview;
+  function norm(t) { return String(t || '').replace(/\s+/g, ' ').trim(); }
+  function items(r) {
+    var L = [];
+    r.parts.forEach(function (pt) { L.push({ k: 'part', src: pt.src, title: pt.title });
+      pt.articles.forEach(function (ar) { L.push({ k: 'art', src: ar.src, title: ar.title });
+        ar.paras.forEach(function (pa) { L.push(pa.note ? { k: 'note' } : { k: 'p', src: pa.src, pa: pa }); }); }); });
+    return L;
+  }
+  function rawMap(body) {
+    var M = {}; SS.parseBody(body).forEach(function (pt) {
+      if (pt.src != null) M[pt.src] = { k: 'part', t: pt.title };
+      pt.articles.forEach(function (ar) { if (ar.src != null) M[ar.src] = { k: 'art', t: ar.title, cond: ar.cond };
+        ar.paras.forEach(function (pa) { M[pa.src] = { k: 'p', t: pa.t, cond: pa.cond, cont: pa.cont, l: pa.l, note: pa.note }; }); });
+    }); return M;
+  }
+  function mark(el, it, raw) { el.setAttribute('contenteditable', 'true'); el.setAttribute('spellcheck', 'true'); el.dataset.lsrc = it.src; el.classList.add('lve'); }
+  refreshPreview = function () {
+    rp1.apply(this, arguments);
+    try {
+      var pv = $('#preview'), p = proj(), s = curSec(); if (!pv || !p || !s || !s.body.trim()) return;
+      var sec = pv.querySelector('.sp-sec'); if (!sec) return;
+      if (!document.getElementById('lvecss')) { var c = document.createElement('style'); c.id = 'lvecss'; c.textContent = '.lve{outline:none;border-radius:3px;cursor:text}.lve:hover{background:rgba(255,230,120,.28)}.lve:focus{background:#fffbe0;box-shadow:0 0 0 2px #e6c84a}.lve.dyn:focus{box-shadow:0 0 0 2px #7aa7ff;background:#eef4ff}.lvehint{font:11px/1.4 inherit;color:#8a8a8a;margin:0 0 8px;text-align:center}'; document.head.appendChild(c); }
+      var its = items(SS.render(s, p, { notes: !!ui.notes })), M = rawMap(s.body);
+      var els = sec.querySelectorAll('.sp-part,.sp-art,.sp-p,.sp-note');
+      if (els.length !== its.length) return;
+      [].forEach.call(els, function (el, i) {
+        var it = its[i]; if (it.k === 'note' || it.src == null) return; var raw = M[it.src]; if (!raw) return;
+        if (it.k === 'p') { var t = el.querySelector('.sp-t'); if (!t) return; mark(t, it); t.dataset.kind = 'p'; t.dataset.rendered = norm(t.textContent); if (norm(raw.t) !== t.dataset.rendered) { t.classList.add('dyn'); t.title = 'This paragraph contains project fields or options. Click to edit the underlying text.'; } }
+        else if (it.k === 'art') { var a = el.querySelector('.sp-at'); if (!a) return; mark(a, it); a.dataset.kind = 'art'; a.dataset.rendered = norm(a.textContent); if (norm(raw.t) !== a.dataset.rendered) a.classList.add('dyn'); }
+        else if (it.k === 'part') { var m = /^(PART \d+ - )(.*)$/.exec(el.textContent); if (!m) return; el.innerHTML = '<span>' + esc(m[1]) + '</span><span class="pt">' + esc(m[2]) + '</span>'; var pt = el.querySelector('.pt'); mark(pt, it); pt.dataset.kind = 'part'; pt.dataset.rendered = norm(m[2]); }
+      });
+      if (!pv.parentNode.querySelector('.lvehint')) pv.insertAdjacentHTML('beforebegin', '<div class="lvehint">Click any text to edit it here. Enter saves, Esc cancels.</div>');
+    } catch (e) { /* preview only */ }
+  };
+  var orig = null;
+  document.addEventListener('focusin', function (e) {
+    var t = e.target; if (!t.classList || !t.classList.contains('lve')) return;
+    var s = curSec(), M = rawMap(s.body), raw = M[t.dataset.lsrc]; if (!raw) return;
+    orig = { el: t, text: t.textContent };
+    if (t.classList.contains('dyn')) { t.textContent = raw.t; try { var rg = document.createRange(); rg.selectNodeContents(t); rg.collapse(false); var sl = window.getSelection(); sl.removeAllRanges(); sl.addRange(rg); } catch (e) {} }
+    t.dataset.start = norm(t.textContent);
+  });
+  function commit(t, cancel) {
+    var s = curSec(), p = proj(); if (!s || !t || !t.classList.contains('lve')) return;
+    var val = norm(t.textContent);
+    if (cancel || val === t.dataset.start) { refreshPreview(); return; }
+    var lines = s.body.split(/\r?\n/), i = +t.dataset.lsrc, M = rawMap(s.body), raw = M[i]; if (!raw || lines[i] == null) { refreshPreview(); return; }
+    if (!val) { toast('Empty text not saved. Use Edit section text to delete lines.'); refreshPreview(); return; }
+    if (t.dataset.kind === 'p') {
+      var m = /^([1-4NnS]):\s?/.exec(lines[i]), cond = raw.cond ? ' ?(' + raw.cond + ')' : '';
+      lines[i] = (m ? m[1] + ': ' : '1: ') + val + cond;
+      (raw.cont || []).slice().sort(function (a, b) { return b - a; }).forEach(function (ci) { lines.splice(ci, 1); });
+    } else if (t.dataset.kind === 'art') { lines[i] = '## ' + val + (raw.cond ? ' ?(' + raw.cond + ')' : ''); }
+    else if (t.dataset.kind === 'part') { lines[i] = '# ' + val; }
+    s.body = lines.join('\n'); saveProjects();
+    var ta = document.querySelector('[data-body]'); if (ta) ta.value = s.body;
+    refreshPreview(); toast('Saved');
+  }
+  document.addEventListener('focusout', function (e) { var t = e.target; if (t.classList && t.classList.contains('lve') && document.body.contains(t)) commit(t, false); });
+  document.addEventListener('keydown', function (e) {
+    var t = e.target; if (!t.classList || !t.classList.contains('lve')) return;
+    if (e.key === 'Enter') { e.preventDefault(); t.blur(); }
+    else if (e.key === 'Escape') { e.preventDefault(); t.textContent = orig ? orig.text : t.textContent; t.dataset.start = norm(t.textContent); t.blur(); }
+  });
+  document.addEventListener('paste', function (e) { var t = e.target; if (t.classList && t.classList.contains('lve')) { e.preventDefault(); var x = (e.clipboardData || window.clipboardData).getData('text').replace(/\s+/g, ' '); document.execCommand('insertText', false, x); } });
+})();
+
+
+/* ================= MARK ALL SECTIONS FINAL ================= */
+(function () {
+  var vs = viewSections;
+  viewSections = function (p) {
+    var h = vs.apply(this, arguments);
+    return h.replace('<button class="btn sm" data-act="reuse"', '<button class="btn sm" data-act="allfinal" title="Mark every included section final">All final</button><button class="btn sm" data-act="reuse"');
+  };
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act="allfinal"]'); if (!el) return; e.stopImmediatePropagation();
+    var p = proj(); if (!p) return;
+    var inc = p.sections.filter(function (s) { return s.on !== false && (s.body || '').trim(); });
+    var todo = inc.filter(function (s) { return s.status !== 'final'; });
+    if (!inc.length) return toast('No included sections with text.');
+    if (!todo.length) { if (confirm('All ' + inc.length + ' included sections are already final. Set them all back to Draft?')) { inc.forEach(function (s) { s.status = 'draft'; }); saveProjects(); render(); toast('All sections set to Draft'); } return; }
+    var open = todo.filter(function (s) { return SS.render(s, p, {}).unresolved > 0; }).length;
+    if (!confirm('Mark ' + todo.length + ' section' + (todo.length === 1 ? '' : 's') + ' final?' + (open ? '\n\n' + open + ' still ha' + (open === 1 ? 's' : 've') + ' open items (blank answers). You can still mark them final, and the pre-issue check will list them.' : '') + '\n\nOnly included sections with text change. Undo or each section\'s status menu reverses it.')) return;
+    todo.forEach(function (s) { s.status = 'final'; }); saveProjects(); render(); toast(todo.length + ' section' + (todo.length === 1 ? '' : 's') + ' marked final');
+  }, true);
 })();
 
 
